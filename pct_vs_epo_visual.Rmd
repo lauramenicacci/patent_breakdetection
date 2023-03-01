@@ -1,0 +1,78 @@
+---
+title: "patent_counts_time_series"
+author: "Laura Menicacci"
+date: "2023-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv")
+
+
+pct_pat <- pct_patent_counts %>% 
+  filter(prio_year >= 1999 & prio_year <= 2020)
+
+pct_pat %>% 
+  filter(region != "United States - not regionalised") %>% 
+  group_by(region) %>% 
+  ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw()
+
+```
+```{r}
+
+epo_patent_counts <- read_csv("D:/epo_patent_counts.csv")
+
+years = (1977:2020)
+
+#create data frame with 0 rows and 3 columns
+df2 <- data.frame(matrix(ncol = 3, nrow = 0))
+
+#provide column names
+
+for (state in unique(epo_patent_counts$Up_reg_label)){
+  for (i in (1:length(years))){
+    df2 <- rbind(df2, c(state, years[i], 0))
+  }
+}
+colnames(df2) <- c('Up_reg_label','prio_year','inv_share')
+for(i in (1:nrow(epo_patent_counts))){
+  for (j in (1:nrow(df2))){
+    if(epo_patent_counts[i,1] == df2[j,1] && epo_patent_counts[i,2] == df2[j,2]){
+      df2[j,3] = epo_patent_counts[i,3]
+    }
+  }
+}
+
+df2$inv_share <- as.numeric(df2$inv_share)
+
+pat <- df2
+
+pat <- pat %>% 
+  rename(region = Up_reg_label) %>% 
+  rename(patent_count = inv_share) 
+
+pat$prio_year <- as.numeric(pat$prio_year)
+
+write_csv(pat,"D:\\epo_patent_counts_1.csv")
+
+```
+
+
+## select year
+```{r}
+epo_pat_count <- pat %>% 
+  filter(prio_year >= 1999 & prio_year <= 2020)
+
+write_csv(pct_pat,"D:\\epo_patent_counts_1999_2020.csv")
+
+epo_pat_count %>% 
+  filter(region != "United States - not regionalised") %>% 
+  group_by(region) %>% 
+  ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw()
+
+
+```
+
+

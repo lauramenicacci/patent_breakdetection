@@ -1,0 +1,169 @@
+---
+title: "Untitled"
+author: "Laura Menicacci"
+date: "2023-02-26"
+output: html_document
+---
+
+# Libraries & data
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv")
+
+```
+
+# Introduction 
+
+* Why I chose PCT Office
+
+
+# Add 0 values for missing years
+
+Here I assume that years that are not present 
+
+```{r}
+
+years = (1977:2020)
+
+#create data frame with 0 rows and 3 columns
+df2 <- data.frame(matrix(ncol = 3, nrow = 0))
+
+# provide column names
+
+for (state in unique(pct_patent_counts$Up_reg_label)){
+  for (i in (1:length(years))){
+    df2 <- rbind(df2, c(state, years[i], 0))
+  }
+}
+colnames(df2) <- c('Up_reg_label','prio_year','inv_share')
+for(i in (1:nrow(pct_patent_counts))){
+  for (j in (1:nrow(df2))){
+    if(pct_patent_counts[i,1] == df2[j,1] && pct_patent_counts[i,2] == df2[j,2]){
+      df2[j,3] = pct_patent_counts[i,3]
+    }
+  }
+}
+
+
+```
+
+# Sistema variabili
+
+```{r}
+
+df2$inv_share <- as.numeric(df2$inv_share)
+
+pat <- df2
+
+pat <- pat %>% 
+  rename(region = Up_reg_label) %>% 
+  rename(patent_count = inv_share) %>% 
+  as.integer(prio_year)
+
+write_csv(pat,"D:\\pct_patent_counts_1.csv")
+
+```
+
+# Summary statistics
+
+```{r}
+pct_patent_counts %>% summarise(across(where(is.numeric), .fns = 
+                     list(min = min,
+                          median = median,
+                          mean = mean,
+                          stdev = sd,
+                          q25 = ~quantile(., 0.25),
+                          q75 = ~quantile(., 0.75),
+                          max = max))) %>%
+  pivot_longer(everything(), names_sep='_', names_to=c('variable', '.value'))
+
+```
+# Filter for specific time frame
+
+```{r}
+pct_pat <- pct_patent_counts %>% 
+  filter(prio_year >= 1999 & prio_year <= 2020)
+
+write_csv(pct_pat,"D:\\pct_patent_counts_1999_2020.csv")
+```
+
+
+# Add GDP control 
+Real GDP (millions of chained 2012 dollars)
+
+Unit: Millions of chained 2012 dollars
+```{r}
+gdp <- read_csv("D:/Controls/SAGDP1__ALL_AREAS_1997_2021.csv")
+
+gdp_filt <- gdp %>% 
+  select(!c("GeoFIPS", "Region", "TableName", "LineCode", "IndustryClassification")) %>% 
+  filter(Description %in% c("Real GDP (millions of chained 2012 dollars)")) %>% # "Current-dollar GDP (millions of current dollars)"
+  filter(!GeoName %in% c("United States")) %>% 
+  pivot_longer(cols = c("1997", "1998", "1999","2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011" , "2012","2013","2014","2015","2016","2017","2018","2019","2020", "2021"), 
+               names_to = "year", 
+               values_to = "gdp") %>% 
+  select(!c("Description", "Unit")) 
+
+gdp_filt$year <- as.numeric(gdp_filt$year)
+
+pat_gdp <- left_join(pct_pat, gdp_filt, by = c("region" = "GeoName", "prio_year" = "year"))
+
+write_csv(pat_gdp,"D:\\pat_gdp.csv")
+
+```
+
+# Population 
+
+Resident population including Armed Forces, thousand
+
+```{r}
+library(readxl)
+pop <- read_excel("D:\\Controls\\use_oi.xlsx", sheet = 2, skip = 2)
+
+us_codes <- as.data.frame(state.abb)
+
+us_codes$name <- state.name
+
+pat_codes <- left_join(pat_gdp, us_codes, by = c("region" = "name"))
+
+pop_filt <-  pop[,c(1,39:62)]
+
+pop_long <- pop_filt %>% pivot_longer(cols = c("1997", "1998", "1999","2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011" , "2012","2013","2014","2015","2016","2017","2018","2019","2020"), 
+               names_to = "year", 
+               values_to = "pop")
+
+pop_long$year <- as.numeric(pop_long$year)
+
+pat_gdp_pop <- left_join(pat_codes, pop_long, by = c("state.abb" = "State", "prio_year" = "year"))
+
+pat_gdp_pop <- pat_gdp_pop %>% 
+  rename("state_name"= "region") %>% 
+  rename("state_code" = "state.abb") %>% 
+  select(c("state_name", "state_code", "prio_year", "patent_count", "gdp", "pop"))
+
+```
+
+
+# R&D control
+```{r}
+
+r_d <- read.csv("D:/Controls/r&d_exp_1999_2019_new.csv")
+
+new <- c("1999","2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011","2012","2013","2014","2015","2016","2017","2018","2019")
+old <- c("X1999","X2000" ,"X2001" ,"X2002" ,"X2003" ,"X2004" ,"X2005" ,"X2006" ,"X2007" ,"X2008" ,"X2009" ,"X2010" ,"X2011","X2012","X2013","X2014","X2015","X2016","X2017","X2018","X2019")
+
+r_d <- r_d %>% rename_with(~ new, all_of(old))
+
+r_d_long <- pivot_longer(cols = new,  
+               names_to = "year", 
+               values_to = "R&D", values_transform = list(new = as.numeric))
+
+
+r_d[2:22,] <- as.numeric(r_d[2:22,])
+
+pat_gdp_rd <- left_join(pat_gdp, r_d_long, by = c("region" = "GeoName", "prio_year" = "year"))
+
+```
+# 

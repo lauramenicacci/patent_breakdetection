@@ -196,6 +196,15 @@ PADD 4 (Rocky Mountain): Colorado, Idaho, Montana, Utah, Wyoming.
 PADD 5 (West Coast): Alaska (North Slope and Other Mainland), Arizona, California, Hawaii, Nevada, Oregon, Washington, Federal Offshore California.
 ```{r}
 
+library(readxl)
+fuel <- read_excel("D:\\Controls\\fuel_prices\\PET_PRI_DFP1_K_A.xls", sheet = 2, skip = 2)
+
+fuel_filt <- fuel %>% 
+  select(c("Date", "U.S. Crude Oil First Purchase Price (Dollars per Barrel)", "East Coast (PADD 1) Crude Oil First Purchase Price (Dollars per Barrel)", "Midwest (PADD 2) Crude Oil First Purchase Price (Dollars per Barrel)", "Gulf Coast (PADD 3) Crude Oil First Purchase Price (Dollars per Barrel)", "Rocky Mountain (PADD 4) Crude Oil First Purchase Price (Dollars per Barrel)", "West Coast (PADD 5) Crude Oil First Purchase Price (Dollars per Barrel)"))
+
+# change date format to year w lubridate
+
+# how to go from padd to countries???
 
 
 ```

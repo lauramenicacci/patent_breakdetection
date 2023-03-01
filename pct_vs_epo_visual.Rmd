@@ -20,6 +20,9 @@ pct_pat %>%
   ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw()
 
 ```
+
+
+
 ```{r}
 
 epo_patent_counts <- read_csv("D:/epo_patent_counts.csv")
@@ -47,27 +50,27 @@ for(i in (1:nrow(epo_patent_counts))){
 
 df2$inv_share <- as.numeric(df2$inv_share)
 
-pat <- df2
+epo_pat <- df2
 
-pat <- pat %>% 
+epo_pat <- epo_pat %>% 
   rename(region = Up_reg_label) %>% 
-  rename(patent_count = inv_share) 
+  rename(epo_patent_count = inv_share) 
 
-pat$prio_year <- as.numeric(pat$prio_year)
+epo_pat$prio_year <- as.numeric(epo_pat$prio_year)
 
-write_csv(pat,"D:\\epo_patent_counts_1.csv")
+write_csv(epo_pat,"D:\\epo_patent_counts_1.csv")
 
 ```
 
 
 ## select year
 ```{r}
-epo_pat_count <- pat %>% 
+epo_pat_20y <- pat %>% 
   filter(prio_year >= 1999 & prio_year <= 2020)
 
-write_csv(pct_pat,"D:\\epo_patent_counts_1999_2020.csv")
+write_csv(epo_pat_20y,"D:\\epo_patent_counts_1999_2020.csv")
 
-epo_pat_count %>% 
+epo_pat_20y %>% 
   filter(region != "United States - not regionalised") %>% 
   group_by(region) %>% 
   ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw()

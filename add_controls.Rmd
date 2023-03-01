@@ -91,10 +91,14 @@ write_csv(pct_pat,"D:\\pct_patent_counts_1999_2020.csv")
 
 
 # Add GDP control 
+
 Real GDP (millions of chained 2012 dollars)
 
 Unit: Millions of chained 2012 dollars
+
+Source: BEA 
 ```{r}
+
 gdp <- read_csv("D:/Controls/SAGDP1__ALL_AREAS_1997_2021.csv")
 
 gdp_filt <- gdp %>% 
@@ -116,7 +120,11 @@ write_csv(pat_gdp,"D:\\pat_gdp.csv")
 
 # Population 
 
-Resident population including Armed Forces, thousand
+Resident population including Armed Forces, 
+
+Unit of Measure: thousand
+
+Sources: Table by the U.S. Energy Information Administration, based on population data from the U.S. Census Bureau
 
 ```{r}
 library(readxl)
@@ -147,23 +155,48 @@ pat_gdp_pop <- pat_gdp_pop %>%
 
 
 # R&D control
+
+R&D and R&D Plant Obligations by U.S. State
+
+The amount of federal obligations for R&D and R&D plant to U.S. performers by state.
+Obligations represent the amounts for orders placed, contracts awarded, services received, and similar transactions during a given period, regardless of when the funds were appropriated.
+
+Deflator: Current Dollars			
+Unit of Measure: Thousands of Dollars			
+SOURCE: National Center for Science and Engineering Statistics, Survey of Federal Funds for Research and Development.	
+
 ```{r}
+r_d <- read_csv("D:/Controls/r&d_exp_1999_2019_new.csv")
 
-r_d <- read.csv("D:/Controls/r&d_exp_1999_2019_new.csv")
-
-new <- c("1999","2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011","2012","2013","2014","2015","2016","2017","2018","2019")
-old <- c("X1999","X2000" ,"X2001" ,"X2002" ,"X2003" ,"X2004" ,"X2005" ,"X2006" ,"X2007" ,"X2008" ,"X2009" ,"X2010" ,"X2011","X2012","X2013","X2014","X2015","X2016","X2017","X2018","X2019")
-
-r_d <- r_d %>% rename_with(~ new, all_of(old))
-
-r_d_long <- pivot_longer(cols = new,  
+r_d_long <- r_d %>% 
+  pivot_longer(cols = new,  
                names_to = "year", 
-               values_to = "R&D", values_transform = list(new = as.numeric))
+               values_to = "rd", values_transform = list(new = as.numeric))
 
+r_d_long$year <- as.numeric(r_d_long$year)
 
-r_d[2:22,] <- as.numeric(r_d[2:22,])
+pat_gdp_pop_rd <- left_join(pat_gdp_pop, r_d_long, by = c("state_name" = "Fiscal Year", "prio_year" = "year"))
 
-pat_gdp_rd <- left_join(pat_gdp, r_d_long, by = c("region" = "GeoName", "prio_year" = "year"))
+write_csv(pat_gdp_pop_rd,"D:\\pat_gdp_pop_rd.csv")
 
 ```
-# 
+
+
+# Crude oil prices
+
+Numbers aggregated by Petroleum Administration for Defense District (PADD):
+
+PADD 1 (East Coast):
+   PADD 1A (New England): Connecticut, Maine, Massachusetts, New Hampshire, Rhode Island, Vermont.
+   PADD 1B (Central Atlantic): Delaware, District of Columbia, Maryland, New Jersey, New York, Pennsylvania.
+   PADD 1C (Lower Atlantic): Florida, Georgia, North Carolina, South Carolina, Virginia, West Virginia.
+PADD 2 (Midwest): Illinois, Indiana, Iowa, Kansas, Kentucky, Michigan, Minnesota, Missouri, Nebraska, North Dakota, Ohio, Oklahoma, South Dakota, Tennessee, Wisconsin.
+PADD 3 (Gulf Coast): Alabama, Arkansas, Louisiana, Mississippi, New Mexico, Texas, Federal Offshore Gulf.
+PADD 4 (Rocky Mountain): Colorado, Idaho, Montana, Utah, Wyoming.
+PADD 5 (West Coast): Alaska (North Slope and Other Mainland), Arizona, California, Hawaii, Nevada, Oregon, Washington, Federal Offshore California.
+```{r}
+
+
+
+```
+

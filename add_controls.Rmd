@@ -1,29 +1,36 @@
 ---
-title: "Untitled"
+title: "Summary statitics + controls"
 author: "Laura Menicacci"
 date: "2023-02-26"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_collapsed: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    number_sections: false
+    theme: lumen
+    highlight: tango
 ---
 
 # Libraries & data
 
-```{r setup, include=FALSE}
+```{r setup, echo=FALSE, show_col_types = FALSE}
 
 library(tidyverse)
 pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv")
 
 ```
 
-# Introduction 
-
-* Why I chose PCT Office
+# Tidy data
 
 
-# Add 0 values for missing years
+## Add 0 values for missing years
 
-Here I assume that years that are not present 
+Here I assume that years that are not present = years with no patents filed under PCT 
 
-```{r}
+```{r,eval=FALSE, echo=FALSE}
 
 years = (1977:2020)
 
@@ -46,30 +53,37 @@ for(i in (1:nrow(pct_patent_counts))){
   }
 }
 
-
-```
-
-# Sistema variabili
-
-```{r}
-
 df2$inv_share <- as.numeric(df2$inv_share)
 
 pat <- df2
 
 pat <- pat %>% 
   rename(region = Up_reg_label) %>% 
-  rename(patent_count = inv_share) %>% 
-  as.integer(prio_year)
+  rename(patent_count = inv_share) 
+
+pat$prio_year <- as.integer(pat$prio_year)
 
 write_csv(pat,"D:\\pct_patent_counts_1.csv")
 
 ```
 
+
+## Filter for specific time frame
+
+```{r,echo=FALSE}
+pct_pat <- pct_patent_counts %>% 
+  filter(prio_year >= 1999 & prio_year <= 2020)
+
+pct_pat$prio_year <- as.integer(pct_pat$prio_year)
+
+# write_csv(pct_pat,"D:\\pct_patent_counts_1999_2020.csv")
+```
+
+
 # Summary statistics
 
-```{r}
-pct_patent_counts %>% summarise(across(where(is.numeric), .fns = 
+```{r, echo=FALSE}
+stats <- pct_pat %>% summarise(across(where(is.numeric), .fns = 
                      list(min = min,
                           median = median,
                           mean = mean,
@@ -77,27 +91,50 @@ pct_patent_counts %>% summarise(across(where(is.numeric), .fns =
                           q25 = ~quantile(., 0.25),
                           q75 = ~quantile(., 0.75),
                           max = max))) %>%
-  pivot_longer(everything(), names_sep='_', names_to=c('variable', '.value'))
+  pivot_longer(everything())
+
+stats
 
 ```
-# Filter for specific time frame
 
-```{r}
-pct_pat <- pct_patent_counts %>% 
-  filter(prio_year >= 1999 & prio_year <= 2020)
+## Boxplot - by year
+```{r, echo=FALSE}
+# Basic box plot
 
-write_csv(pct_pat,"D:\\pct_patent_counts_1999_2020.csv")
+pct_pat$prio_year.factor <- factor(pct_pat$prio_year)
+
+ggplot(pct_pat) + 
+  geom_boxplot(mapping = aes(x = prio_year.factor,
+                             y = patent_count), 
+               outlier.colour="red",
+                outlier.size=1) +
+  labs(x = "Priority filing year", y =  "Patent count") + theme_bw()
+
 ```
 
+## Boxplot - by US State
 
-# Add GDP control 
+```{r, fig.height=10, fig.width=10, echo=FALSE}
 
-Real GDP (millions of chained 2012 dollars)
+ggplot(pct_pat) + 
+  geom_boxplot(mapping = aes(x = prio_year,
+                             y = patent_count), 
+               outlier.colour="red",
+                outlier.size=1) +
+  labs(x = "Priority filing year", y =  "Patent count") + theme_bw() + facet_wrap(~region)
+
+```
+
+# Add controls
+
+## GDP - 1999-2020
+
+**Real GDP (millions of chained 2012 dollars)**
 
 Unit: Millions of chained 2012 dollars
 
-Source: BEA 
-```{r}
+Source: BEA (Bureau of Economic Analysis)
+```{r,eval=FALSE, echo=FALSE}
 
 gdp <- read_csv("D:/Controls/SAGDP1__ALL_AREAS_1997_2021.csv")
 
@@ -118,15 +155,15 @@ write_csv(pat_gdp,"D:\\pat_gdp.csv")
 
 ```
 
-# Population 
+## Population - 1999-2020
 
-Resident population including Armed Forces, 
+**Resident population including Armed Forces**
 
 Unit of Measure: thousand
 
 Sources: Table by the U.S. Energy Information Administration, based on population data from the U.S. Census Bureau
 
-```{r}
+```{r,eval=FALSE, echo=FALSE}
 library(readxl)
 pop <- read_excel("D:\\Controls\\use_oi.xlsx", sheet = 2, skip = 2)
 
@@ -154,9 +191,9 @@ pat_gdp_pop <- pat_gdp_pop %>%
 ```
 
 
-# R&D control
+## R&D - 1999-2019
 
-R&D and R&D Plant Obligations by U.S. State
+**R&D and R&D Plant Obligations by U.S. State**
 
 The amount of federal obligations for R&D and R&D plant to U.S. performers by state.
 Obligations represent the amounts for orders placed, contracts awarded, services received, and similar transactions during a given period, regardless of when the funds were appropriated.
@@ -165,7 +202,7 @@ Deflator: Current Dollars
 Unit of Measure: Thousands of Dollars			
 SOURCE: National Center for Science and Engineering Statistics, Survey of Federal Funds for Research and Development.	
 
-```{r}
+```{r,eval=FALSE, echo=FALSE}
 r_d <- read_csv("D:/Controls/r&d_exp_1999_2019_new.csv")
 
 r_d_long <- r_d %>% 
@@ -182,19 +219,32 @@ write_csv(pat_gdp_pop_rd,"D:\\pat_gdp_pop_rd.csv")
 ```
 
 
-# Crude oil prices
+## Crude oil prices 1999-2020
 
-Numbers aggregated by Petroleum Administration for Defense District (PADD):
+**Domestic Crude Oil First Purchase Prices by Area**
 
-PADD 1 (East Coast):
-   PADD 1A (New England): Connecticut, Maine, Massachusetts, New Hampshire, Rhode Island, Vermont.
-   PADD 1B (Central Atlantic): Delaware, District of Columbia, Maryland, New Jersey, New York, Pennsylvania.
-   PADD 1C (Lower Atlantic): Florida, Georgia, North Carolina, South Carolina, Virginia, West Virginia.
-PADD 2 (Midwest): Illinois, Indiana, Iowa, Kansas, Kentucky, Michigan, Minnesota, Missouri, Nebraska, North Dakota, Ohio, Oklahoma, South Dakota, Tennessee, Wisconsin.
-PADD 3 (Gulf Coast): Alabama, Arkansas, Louisiana, Mississippi, New Mexico, Texas, Federal Offshore Gulf.
-PADD 4 (Rocky Mountain): Colorado, Idaho, Montana, Utah, Wyoming.
-PADD 5 (West Coast): Alaska (North Slope and Other Mainland), Arizona, California, Hawaii, Nevada, Oregon, Washington, Federal Offshore California.
-```{r}
+Unit: Dollars per Barre
+
+Definitions:
+
+* Domestic: Crude oil produced in the U.S. or from its "outer continental shelf" as defined in 43 U.S.C. 1331.
+* Crude Oil: A mixture of hydrocarbons that exists in liquid phase in natural underground reservoirs and remains liquid at atmospheric pressure after passing through surface separating facilities. Liquids produced at natural gas processing plants are excluded. Crude oil is refined to produce a wide array of petroleum products, including heating oils; gasoline, diesel and jet fuels; lubricants; asphalt; ethane, propane, and butane; and many other products used for their energy or chemical content.
+* First purchase price: An equity (not custody) transaction involving an arms-length transfer of ownership of crude oil associated with the physical removal of the crude oil from a property (lease) for the first time. A first purchase normally occurs at the time and place of ownership transfer where the crude oil volume sold is measured and recorded on a run ticket or other similar physical evidence of purchase. The reported cost is the actual amount paid by the purchaser, allowing for any adjustments (deductions or premiums) passed on to the producer or royalty owner.
+
+Numbers are aggregated by Petroleum Administration for Defense District (PADD):
+
+* PADD 1 (East Coast):
+   - PADD 1A (New England): Connecticut, Maine, Massachusetts, New Hampshire, Rhode Island, Vermont.
+   - PADD 1B (Central Atlantic): Delaware, District of Columbia, Maryland, New Jersey, New York, Pennsylvania.
+   - PADD 1C (Lower Atlantic): Florida, Georgia, North Carolina, South Carolina, Virginia, West Virginia.
+* PADD 2 (Midwest): Illinois, Indiana, Iowa, Kansas, Kentucky, Michigan, Minnesota, Missouri, Nebraska, North Dakota, Ohio, Oklahoma, South Dakota, Tennessee, Wisconsin.
+* PADD 3 (Gulf Coast): Alabama, Arkansas, Louisiana, Mississippi, New Mexico, Texas, Federal Offshore Gulf.
+* PADD 4 (Rocky Mountain): Colorado, Idaho, Montana, Utah, Wyoming.
+* PADD 5 (West Coast): Alaska (North Slope and Other Mainland), Arizona, California, Hawaii, Nevada, Oregon, Washington, Federal Offshore California.
+
+Source: U.S. Energy Information Administration, ([link to page](https://www.eia.gov/dnav/pet/pet_pri_dfp1_k_m.htm))
+
+```{r,eval=FALSE, echo=FALSE}
 
 library(readxl)
 fuel <- read_excel("D:\\Controls\\fuel_prices\\PET_PRI_DFP1_K_A.xls", sheet = 2, skip = 2)
@@ -209,3 +259,12 @@ fuel_filt <- fuel %>%
 
 ```
 
+**Alternatives:**
+
+* From Energy Information Administration, there is a csv with a lot of information, by State and by year, on all kinds of energy consumption/production, including:
+  - total energy average price in Dollars per million Btu
+  - total energy consumption in Billion Btu
+  - Renewable energy total consumption in Billion Btu
+  - Crude oil production (including lease condensate) in Billion Btu
+  - Crude oil consumed by the industrial sector in Billion Btu
+  - Others...

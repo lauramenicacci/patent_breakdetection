@@ -268,3 +268,11 @@ fuel_filt <- fuel %>%
   - Crude oil production (including lease condensate) in Billion Btu
   - Crude oil consumed by the industrial sector in Billion Btu
   - Others...
+  
+  
+## HDD & CDD 
+
+```{r}
+
+```
+

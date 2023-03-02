@@ -2,10 +2,57 @@
 title: "patent_counts_time_series"
 author: "Laura Menicacci"
 date: "2023-03-01"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
 ---
 
-```{r setup, include=FALSE}
+## Difference between EPO and PCT, reason why only PCT was chosen. 
+
+PCT is not a proper patenting office, but an international convention that was ratified by many countries around the world, to which inventors can apply if they want to protect their invention internationally without filing an application in each of the foreign countries they want their invention to be legally protected.
+
+**Procedure of PCT filing works as follows:**
+
+* First the inventor files an application to their national office, under the PCT convention (if they are contracting parties)
+* The national office works as Receiving Office: it will examine the patenting application and send it to the PCT office
+* This will result in an application to PCT 'at international phase', meaning that the applicant filed an application for her/his invention to be recognised internationally
+* After patent is granted at the international phase - this process takes up to 18 months after first filing (i.e. priority date) - the applicant can then decide to which other regional/national patent office to apply.
+
+Here EPO enters the game: 
+
+* EPO (European Patenting Office) is just another regional patent office to which inventors can apply. For example, if the applicant has a PCT grant, he can proceed to protect the invention at the EPO regional office. 
+
+**Back to our database:**
+
+We have two regionalised databases, one with EPO applications and one with PCT applications at international phase (e.g. patent application that we approved by PCT and were able to enter the national phase).
+
+What is the relationship between them? 
+
+* There is no such thing as an 'International Patent' or a 'PCT-patent', so a patent submitted through the PCT will then also need to be approved by a national/regional patent office, as the EPO.
+* **US case:** A US inventor has two avenues to getting an EPO patent: They can directly submit a patent application to the EPO, or they can submit a patent application to the US patent office under the PCT. The US patent office then performs a preliminary search, but essentially the EPO (and all other regional patent offices) themselves receive this as a patent application as well, to decide based on regional law whether the regional patent should be granted or not.
+
+Implications for the data:
+
+* **PCT patents - filtered for US states and Y02E class - represent those inventions that were first filed in the US patenting office under the international PCT procedure**, meaning that the applicant planned to protect such invention also internationally. 
+* EPO patents can contain the same PCT patents that then proceeded to an application at the EPO after the PCT grant
+
+Problem: From which patenting office should I take the data? 
+
+* PCT applications will normally also result in EPO applications, but not necessarily vice versa.
+* To understand how many PCT US green patents entered the EPO regional phase, I checked the overlap between EPO and PCT application numbers using a correspondance table given by OECD. This gave me the amount of PCT applications already present in the EPO dataset.
+* Rule of thumb: if overlap is high, take only PCT patents, if overlap is low, take both. 
+* Overlap resulted to be around 66% of PCT applications already present in the EPO. 
+* Final decision: take only PCT.
+
+Other reasons for this choice:
+
+* We are not that interested in patents that inventors filed specifically to the EU patenting office. 
+* PCT has been proven to be a filter for highly valued patents, since it represent the internationally filed patents - previous literature used it.
+
+## PCT
+
+```{r, echo=FALSE}
 
 library(tidyverse)
 pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv")
@@ -14,68 +61,33 @@ pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv")
 pct_pat <- pct_patent_counts %>% 
   filter(prio_year >= 1999 & prio_year <= 2020)
 
-pct_pat %>% 
+pct_series <- pct_pat %>% 
   filter(region != "United States - not regionalised") %>% 
   group_by(region) %>% 
-  ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw()
+  ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw() + scale_x_discrete(limits = c(2000 , 2005 ,2010 ,2015,2020)) + ggtitle("PCT green patent counts by US State - 1999-2020")
 
+pct_series
+
+ggsave("PCT_count_timeseries", plot = pct_series, device = "png", width = 10, height = 10)
 ```
 
 
+## EPO
+```{r, echo=FALSE}
+epo_pat <- read_csv("D:\\epo_patent_counts_1.csv")
 
-```{r}
-
-epo_patent_counts <- read_csv("D:/epo_patent_counts.csv")
-
-years = (1977:2020)
-
-#create data frame with 0 rows and 3 columns
-df2 <- data.frame(matrix(ncol = 3, nrow = 0))
-
-#provide column names
-
-for (state in unique(epo_patent_counts$Up_reg_label)){
-  for (i in (1:length(years))){
-    df2 <- rbind(df2, c(state, years[i], 0))
-  }
-}
-colnames(df2) <- c('Up_reg_label','prio_year','inv_share')
-for(i in (1:nrow(epo_patent_counts))){
-  for (j in (1:nrow(df2))){
-    if(epo_patent_counts[i,1] == df2[j,1] && epo_patent_counts[i,2] == df2[j,2]){
-      df2[j,3] = epo_patent_counts[i,3]
-    }
-  }
-}
-
-df2$inv_share <- as.numeric(df2$inv_share)
-
-epo_pat <- df2
-
-epo_pat <- epo_pat %>% 
-  rename(region = Up_reg_label) %>% 
-  rename(epo_patent_count = inv_share) 
-
-epo_pat$prio_year <- as.numeric(epo_pat$prio_year)
-
-write_csv(epo_pat,"D:\\epo_patent_counts_1.csv")
-
-```
-
-
-## select year
-```{r}
-epo_pat_20y <- pat %>% 
+epo_pat_20y <- epo_pat %>% 
   filter(prio_year >= 1999 & prio_year <= 2020)
 
 write_csv(epo_pat_20y,"D:\\epo_patent_counts_1999_2020.csv")
 
-epo_pat_20y %>% 
+epo_series <- epo_pat_20y %>% 
   filter(region != "United States - not regionalised") %>% 
   group_by(region) %>% 
-  ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw()
+  ggplot(aes(x = prio_year, y = epo_patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw() +ggtitle("EPO green patent counts by US State - 1999-2020")
 
+epo_series
+
+ggsave("EPO_count_timeseries", plot = epo_series, device = "png", width = 10, height = 10)
 
 ```
-
-

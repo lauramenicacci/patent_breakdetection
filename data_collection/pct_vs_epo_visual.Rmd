@@ -3,21 +3,21 @@ title: "patent_counts_time_series"
 author: "Laura Menicacci"
 date: "2023-03-01"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
   word_document: default
 ---
 
-## Difference between EPO and PCT, reason why only PCT was chosen. 
+## Description of the differences between EPO and PCT (in general and in the REGPAT Database)
 
 PCT is not a proper patenting office, but an international convention that was ratified by many countries around the world, to which inventors can apply if they want to protect their invention internationally without filing an application in each of the foreign countries they want their invention to be legally protected.
 
 **Procedure of PCT filing works as follows:**
 
-* First the inventor files an application to their national office, under the PCT convention (if they are contracting parties)
-* The national office works as Receiving Office: it will examine the patenting application and send it to the PCT office
+* First the inventor files an application to their national office, under the PCT convention (if they are contracting parties to the PCT)
+* The national office works as Receiving Office: it will examine the patenting application (preliminary search) and check its 'patentability'
 * This will result in an application to PCT 'at international phase', meaning that the applicant filed an application for her/his invention to be recognised internationally
-* After patent is granted at the international phase - this process takes up to 18 months after first filing (i.e. priority date) - the applicant can then decide to which other regional/national patent office to apply.
+* This process takes up to 18 months after first filing (i.e. priority date) - then the applicant can then decide to which other regional/national patent office to apply (without going again through the preliminary search procedure).
 
 Here EPO enters the game: 
 
@@ -35,24 +35,31 @@ What is the relationship between them?
 Implications for the data:
 
 * **PCT patents - filtered for US states and Y02E class - represent those inventions that were first filed in the US patenting office under the international PCT procedure**, meaning that the applicant planned to protect such invention also internationally. 
-* EPO patents can contain the same PCT patents that then proceeded to an application at the EPO after the PCT grant
+* EPO patents can contain the same PCT patents that then proceeded to an application at the EPO after the PCT grant, but also those that we directly filed from US to EPO.
 
-Problem: From which patenting office should I take the data? 
+**Problem:** from which patenting office should I take the data? 
 
 * PCT applications will normally also result in EPO applications, but not necessarily vice versa.
-* To understand how many PCT US green patents entered the EPO regional phase, I checked the overlap between EPO and PCT application numbers using a correspondance table given by OECD. This gave me the amount of PCT applications already present in the EPO dataset.
+* To understand how many PCT US green patents entered the EPO regional phase, I checked the overlap between EPO and PCT application numbers using a correspondance table given by OECD. This gave me the amount of PCT applications already present in the  EPO dataset.
 * Rule of thumb: if overlap is high, take only PCT patents, if overlap is low, take both. 
-* Overlap resulted to be around 66% of PCT applications already present in the EPO. 
-* Final decision: take only PCT.
+* Overlap resulted to be around 66% of PCT applications already present in the EPO (18313 over the EPO total = 27577). 
+* This means that we already have 66% of the total patents that from PCT went into the regional procedure, while the other 44% (9264) consists of direct applications from US inventors to the EPO office. 
 
-Other reasons for this choice:
+**Solution:**
 
-* We are not that interested in patents that inventors filed specifically to the EU patenting office. 
-* PCT has been proven to be a filter for highly valued patents, since it represent the internationally filed patents - previous literature used it.
+We know that there might be different time horizons between the EPO and PCT application procedures. However, the priority date should be the same no matter which way the application is submitted. 
 
+In the EPO procedure the date should be recorded when the patent is filed, and in the PCT procedure the filing data should be the date when it is filed in the US. 
+
+* For the patents which have both an EPO and a PCT application, I checked whether the filing date is the same:
+ - Answer: out of 18313 common patents, 18214 had same priority year (99 = 0,5% of patents had different priority year). 
+ - Two choices: 
+1. Keep only PCT patents (36313), loosing additional 9264 patents with direct application from US to EPO. 
+2. Use those 9264 direct EPO patents with the PCT database (not including the EPO applications with different years)
+
+# Here an overview of the time series of the two offices, plus the merged direct EPO + PCT one
 ## PCT
-
-```{r, echo=FALSE}
+```{r, fig.height=10, fig.width=10, echo=FALSE}
 
 library(tidyverse)
 pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv")
@@ -73,7 +80,7 @@ ggsave("PCT_count_timeseries.png", plot = pct_series, device = "png", width = 10
 
 
 ## EPO
-```{r, echo=FALSE}
+```{r, fig.height=10, fig.width=10, echo=FALSE}
 epo_pat <- read_csv("D:\\epo_patent_counts_1.csv")
 
 epo_pat_20y <- epo_pat %>% 
@@ -91,3 +98,63 @@ epo_series
 ggsave("EPO_count_timeseries.png", plot = epo_series, device = "png", width = 10, height = 10)
 
 ```
+
+
+
+## PCT + DIRECT EPO 
+```{r, eval=FALSE, echo=FALSE}
+
+pct_epo <- read_csv("D:\\patent_count_pct_direct_epo_counts.csv")
+
+pct_epo_pat <- pct_epo %>% 
+  filter(prio_year >= 1999 & prio_year <= 2020)
+
+years = (1999:2020)
+
+#create data frame with 0 rows and 3 columns
+df2 <- data.frame(matrix(ncol = 3, nrow = 0))
+
+# provide column names
+
+for (state in unique(pct_epo_pat$Up_reg_label)){
+  for (i in (1:length(years))){
+    df2 <- rbind(df2, c(state, years[i], 0))
+  }
+}
+colnames(df2) <- c('Up_reg_label','prio_year','inv_share')
+for(i in (1:nrow(pct_epo_pat))){
+  for (j in (1:nrow(df2))){
+    if(pct_epo_pat[i,1] == df2[j,1] && pct_epo_pat[i,2] == df2[j,2]){
+      df2[j,3] = pct_epo_pat[i,3]
+    }
+  }
+}
+
+df2$inv_share <- as.numeric(df2$inv_share)
+
+pat_all <- df2
+
+pat_all <- pat_all %>% 
+  rename(region = Up_reg_label) %>% 
+  rename(patent_count = inv_share) 
+
+pat_all$prio_year <- as.integer(pat_all$prio_year)
+
+write_csv(pat_all,"D:\\patent_counts_direct_epo_pct.csv")
+
+```
+```{r, fig.height=10, fig.width=10, echo=FALSE}
+
+pat_all <- read_csv("D:/patent_counts_direct_epo_pct.csv")
+
+pat_all_series <- pat_all %>% 
+  filter(region != "United States - not regionalised") %>% 
+  group_by(region) %>% 
+  ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw() +ggtitle("PCT+ direct EPO green patent counts by US State - 1999-2020")
+
+pat_all_series
+
+ggsave("ALL_count_timeseries.png", plot = pat_all_series, device = "png", width = 10, height = 10)
+
+```
+

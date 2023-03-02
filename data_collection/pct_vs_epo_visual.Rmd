@@ -68,7 +68,7 @@ pct_series <- pct_pat %>%
 
 pct_series
 
-ggsave("PCT_count_timeseries", plot = pct_series, device = "png", width = 10, height = 10)
+ggsave("PCT_count_timeseries.png", plot = pct_series, device = "png", width = 10, height = 10)
 ```
 
 
@@ -88,6 +88,6 @@ epo_series <- epo_pat_20y %>%
 
 epo_series
 
-ggsave("EPO_count_timeseries", plot = epo_series, device = "png", width = 10, height = 10)
+ggsave("EPO_count_timeseries.png", plot = epo_series, device = "png", width = 10, height = 10)
 
 ```

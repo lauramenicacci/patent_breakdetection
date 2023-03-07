@@ -1,0 +1,141 @@
+---
+title: "Model specifications"
+author: "Laura Menicacci"
+date: "2023-03-07"
+output: html_document
+---
+# Libraries
+
+```{r}
+library(tidyverse)
+library(gets)
+library(getspanel)
+library(here)
+library(doParallel)
+library(readxl)
+
+```
+
+# Data & controls 
+```{r}
+
+df <- read_csv("D:\\pat_gdp_pop_fuel.csv", show_col_types = FALSE)
+
+df2 <- df %>% 
+  mutate(gdp_sq = gdp^2,
+         lpop = log(pop),
+         lgdp = log(gdp),
+         lfuel = log(fuel_pr_reg),
+         lgdp_sq = log(gdp)^2, # ???
+         #ltemp = log(avg_temp),
+         log_patent_count = log(patent_count)) %>% 
+  filter(prio_year >= 2000)
+
+# Sanity check
+df2 %>% pull(state_name) %>% unique #%>% identical(cty_sample)
+
+df2 %>% filter(!complete.cases(.))
+
+# write.csv(dfi, here("data/out/emissions_panel.csv"))
+```
+
+# Functional forms
+```{r}
+controls <- c(" ~ gdp + pop + lgdp + lpop + lgdp_sq", 
+              " ~ gdp + pop + lgdp + lpop + lgdp_sq + fuel_pr_reg + lfuel")
+            #, " ~ lgdp + lpop + lgdp_sq ") # + avg_temp
+
+dep_var <- c( "patent_count") # "log_patent_count",
+
+base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
+
+base_forms
+```
+
+
+# from analysis_emissions
+```{r}
+cl <- makeCluster(4)
+registerDoParallel(cl)
+```
+
+```{r}
+models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
+  #foreach(smpl = names(samples), .combine = rbind) %:%
+  foreach(a = c(0,1), .combine = rbind) %:%
+  #foreach(b = c(10, 20, 30), .combine = rbind) %:%
+  foreach(p.value = c(0.01, 0.001), .combine = rbind, .errorhandling = "remove") %dopar% {
+    dat <- df2)
+      is <- isatpanel(
+            data = dat,
+            formula = as.formula(f),
+            index = c("country", "year"),
+            effect = "twoways",
+            iis = TRUE,
+            fesis = TRUE,
+            ar = a,
+            t.pval = p.value,
+            max.block.size = 20
+            )
+          models = tibble(source = f, 
+                          country_sample = smpl, 
+                          year_range = paste0(min(dat$year),":",max(dat$year)), 
+                          p_val = p.value, 
+                          is = list(is),
+                          iis = TRUE,
+                          b_size = 20,
+                          ar = a)
+  }
+```
+
+
+## From template_Rmarkdown
+```{r}
+
+# Functional forms
+
+cl <- makeCluster(6)
+registerDoParallel(cl)
+
+models <- foreach(f = add_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
+  foreach(smpl = c("cty_sample", "AC6_all", "AC1"), .combine = rbind) %:%
+  foreach(a = c(0,1), .combine = rbind) %:%
+  #foreach(b = c(10, 20, 30), .combine = rbind) %:%
+  foreach(p.value = c(0.01, 0.001), .combine = rbind, .errorhandling = "remove") %dopar% {
+    dat <- dfi %>% filter(country %in% samples[[smpl]])
+      is <- isatpanel(
+            data = dat,
+            formula = as.formula(f),
+            index = c("country", "year"),
+            effect = "twoways",
+            iis = TRUE,
+            fesis = TRUE,
+            ar = a,
+            t.pval = p.value,
+            max.block.size = 20
+            )
+          models = tibble(source = f, 
+                          country_sample = smpl, 
+                          year_range = paste0(min(dat$year),":",max(dat$year)), 
+                          p_val = p.value, 
+                          is = list(is),
+                          iis = TRUE,
+                          b_size = 20,
+                          ar = a)
+  }
+
+is2 <- isatpanel(
+            data = dfi %>% filter(country %in% AC1),
+            formula = as.formula("log_buildings_emissions ~ lgdp + lpop + lgdp_sq + lhdd + lcdd"),
+            index = c("country", "year"),
+            effect = "twoways",
+            iis = TRUE,
+            fesis = TRUE,
+            ar = 0,
+            t.pval = 0.001,
+            max.block.size = 20
+            )
+
+
+```
+

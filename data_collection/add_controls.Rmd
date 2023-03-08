@@ -23,7 +23,7 @@ output:
 
 library(tidyverse)
 
-pat <- read_csv("D:\\PCT_EPO_counts\\patent_counts_direct_epo_pct.csv")
+pat <- read_csv("D:\\PCT_EPO_counts\\patent_counts_direct_epo_pct.csv", show_col_types = FALSE)
 
 ```
 
@@ -136,7 +136,7 @@ Unit: Millions of chained 2012 dollars
 Source: BEA (Bureau of Economic Analysis)
 ```{r,eval=FALSE, echo=FALSE}
 
-gdp <- read_csv("D:/Controls/SAGDP1__ALL_AREAS_1997_2021.csv")
+gdp <- read_csv("D:/Controls/SAGDP1__ALL_AREAS_1997_2021.csv", show_col_types = FALSE)
 
 gdp_filt <- gdp %>% 
   select(!c("GeoFIPS", "Region", "TableName", "LineCode", "IndustryClassification")) %>% 
@@ -193,7 +193,7 @@ pat_gdp_pop <- pat_gdp_pop %>%
   rename("state_code" = "state.abb") %>% 
   select(c("state_name", "state_code", "prio_year", "patent_count", "gdp", "pop"))
 
- write_csv(pat_gdp_pop,"D:\\pat_gdp_pop.csv")
+# write_csv(pat_gdp_pop,"D:\\pat_gdp_pop.csv")
 
 ```
 
@@ -287,13 +287,13 @@ for(state in state_names){
   }
 }
 
-df$fuel_pr_reg <- values # cbind values to df
+df$fuel <- values # cbind values to df
 
 df$Year <- as.numeric(df$Year)
 
 pat_gdp_pop_fuel <- left_join(pat_gdp_pop, df, by = c("state_name" = "State", "prio_year" = "Year")) # merge data 
 
-write_csv(pat_gdp_pop_fuel,"D:\\pat_gdp_pop_fuel.csv")
+# write_csv(pat_gdp_pop_fuel,"D:\\pat_gdp_pop_fuel.csv")
 
 ```
 
@@ -304,40 +304,74 @@ Unit: Degrees Farheneit
 
 Source: NOAA National Centers for Environmental information, Climate at a Glance: Global Time Series, published February 2023, retrieved on March 3, 2023 from https://www.ncei.noaa.gov/access/monitoring/climate-at-a-glance/global/time-series
 
+For Hawaii:
 
+Unit: Monthly Mean Avg Temperature for Honolulu Area, HI
+
+Source: https://www.weather.gov/wrh/Climate?wfo=hfo
 ```{r, echo=FALSE,eval=FALSE}
 
 library(janitor)
 
-state_names <- c("alabama", "alaska")
+state_name <- c("alabama", "alaska", "arizona", "arkansas","california","colorado","connecticut","delaware","florida","georgia", "idaho","illinois","indiana","iowa","kansas","kentucky","louisiana","maine","maryland","massachusetts","michigan","minnesota","mississippi","missouri","montana","nebraska","nevada","new_hampshire","new_Jersey","new_mexico", "new_york", "north_carolina","north_dakota","ohio", "oklahoma","oregon","pennsylvania","rhode_island","south_carolina",
+"south_dakota", "tennessee","texas","utah","vermont","virginia","washington","west_virginia","wisconsin","wyoming", "district_of_columbia")
 
-state_name <- c("alabama", "alaska", "arizona", "arkansas","california","colorado","connecticut","delaware","florida","georgia","idaho","illinois"," indiana"," iowa","kansas","kentucky","louisiana","maine","maryland","massachusetts","michigan","minnesota","mississippi","missouri","montana","nebraska","nevada","new_hampshire","new_Jersey","new_mexico", "new_York", "north_carolina","north_dakota","ohio", "oklahoma","oregon","pennsylvania","rhode_island","south_carolina",
-"south_dakota", "tennessee","texas","utah","vermont","virginia","washington","west_virginia","wisconsin","wyoming")
+csv <- c()
+df1 <- data.frame(matrix(ncol = 3, nrow = 0))
+avg_temp <- data.frame()
 
-
-merge_dfs <- function(state_names) {
-        for (i in state_names){
-          avg_temp <- bind_rows(i)
-              
-          write_csv(avg_temp, "D:\\Controls\avg_temp_all.csv")
-        }
+for (i in state_name){
+  csv <- read_csv(paste0('D:\\Controls\\avg_temp\\1999-2021_',i,'.csv')) # read csv w i = name of state
+  df <- csv[-c(1:3),1:2]  # select specific rows and cols
+  
+  df1 <- df %>% 
+    row_to_names(row_number = 1) # 1 row to colname 
+  
+  df1$Date <-substr(df1$Date,1,nchar(df1$Date)-2) # remove last 2 digits of year var
+  
+  df1$State <- i # add column w state name 
+  
+  avg_temp <- rbind(avg_temp, df1) # append dataframe
 }
 
-csv <- as.data.frame()
-df3 <- data.frame()
+avg_temp$State <- avg_temp$State %>% 
+  str_replace_all("_", " ") %>%  # change names with _ with " 
+  str_to_title() # put first case high
 
-for (i in state_names){
-            csv <- read_csv(paste0('D:\\Controls\\avg_temp\\1999-2021_',i,'.csv')) # read csv w i = name of state
-            
-            df <- csv[-c(1:3),1:2]  # select specific rows and cols
-            
-            df1 <- df %>% 
-              row_to_names(row_number = 1) # 1 row to colname 
-            
-            df3$Date <-substr(df3$Date,1,nchar(df3$Date)-2) # remove last 2 digits of year var
-            
-            df3$State <- i # add column w state name 
-            
-            }
+for (i in 1:nrow(avg_temp)){ # correct district of columbia  
+  if (avg_temp[i, 3] == "District Of Columbia"){
+    avg_temp[i, 3] <- "District of Columbia"
+  }
+}
+
+# hawaii
+
+hawaii <- read_csv('D:\\Controls\\honolulu_area_avg_temp.csv')
+
+hawaii <- hawaii %>% 
+  mutate(State = "Hawaii") %>% 
+  rename("Date" = "Year") %>% 
+  rename("Value" = "Annual")
+
+avg_temp_all <- rbind(avg_temp, hawaii)
+
+avg_temp_all$Date <- as.integer(avg_temp_all$Date)
+
+# join with all data
+
+pat_gdp_pop_fuel_temp <- left_join(pat_gdp_pop_fuel, avg_temp_all, by = c("state_name" = "State", "prio_year" = "Date"))
+
+df <- pat_gdp_pop_fuel_temp %>% 
+  rename("avg_temp" = "Value")
+```
+
+# Sanity check - complete dataset 
+
+```{r}
+
+df %>% filter(!complete.cases(.)) 
+
+write_csv(df,"D:\\For_model\\final_df.csv")
 
 ```
+

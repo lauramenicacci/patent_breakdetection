@@ -2,11 +2,13 @@
 title: "Model specifications"
 author: "Laura Menicacci"
 date: "`r Sys.Date()`"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 # Libraries
 
-```{r}
+```{r, echo=FALSE}
 library(tidyverse)
 library(gets)
 library(getspanel)
@@ -16,7 +18,7 @@ library(readxl)
 ```
 
 # Data & controls 
-```{r, echo=FALSE, eval= FALSE}
+```{r, echo=FALSE}
 
 df <- read_csv("D:\\For_model\\final_df.csv", show_col_types = FALSE)
 
@@ -35,14 +37,14 @@ df2 %>% pull(state_name) %>% unique #%>% identical(cty_sample)
 
 df2 %>% filter(!complete.cases(.))
 
-write_csv(df2, "D:\\For_model\\df_w_logs.csv")
+#write_csv(df2, "D:\\For_model\\df_w_logs.csv")
 ```
 
 # Functional forms
-```{r , echo=FALSE, eval= FALSE}
-controls <- c(" ~ lgdp + lpop + lgdp_sq", 
-              " ~ lgdp + lpop + lgdp_sq + avg_temp", 
-              " ~ lgdp + lpop + lgdp_sq + avg_temp + lfuel") 
+```{r}
+controls <- c(" ~ gdp + pop", 
+              " ~ gdp + pop + avg_temp", 
+              " ~ gdp + pop + avg_temp + fuel") 
 
 dep_var <- c( "patent_count") 
 
@@ -51,13 +53,15 @@ base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
 base_forms
 ```
 
+
+
 ```{r}
 #   CHECKS 
 ```
 
 
 # simple model
-```{r, echo=FALSE, eval= FALSE}
+```{r, echo=FALSE, eval=FALSE}
 is <- isatpanel(
             data = df2,
             formula = as.formula("patent_count ~ lgdp + lpop"),
@@ -73,7 +77,7 @@ is
 
 
 # from analysis_emissions
-```{r, echo=FALSE, eval= FALSE}
+```{r, echo=FALSE, eval=FALSE}
 cl <- makeCluster(4)
 registerDoParallel(cl)
 
@@ -81,7 +85,8 @@ us_sample <- c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado
 
 ```
 
-```{r, echo=FALSE, eval= FALSE}
+
+```{r, echo=FALSE, eval=FALSE}
 
 models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
   foreach(a = c(0,1,2), .combine = rbind) %:%
@@ -106,11 +111,13 @@ models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', '
                           b_size = 20,
                           ar = a)
   }
+
+
 ```
 
 
 ## have a look
-```{r, echo=FALSE, eval= FALSE}
+```{r}
 for (i in 1:nrow(models)){
   print(models$is[[i]])
 }
@@ -119,17 +126,13 @@ for (i in 1:nrow(models)){
 
 
 ## plot
-```{r, echo=FALSE}
+```{r}
 
 for (i in 1:nrow(models)){
   plot(models$is[[i]])
 }
 
-patent_count_lgdp_lpop_lgdp_sq_ar0 <- plot(models$is[[1]])
-
-ggsave("patent_count_lgdp_lpop_lgdp_sq_ar0.png", plot = patent_count_lgdp_lpop_lgdp_sq_ar0, device = "png", width = 10, height = 10)
-
-patent_count_lgdp_lpop_lgdp_sq_ar0
+plot(models$is[[1]])
 
 plot(models$is[[2]])
 
@@ -145,64 +148,7 @@ plot(models$is[[7]])
 
 plot(models$is[[8]])
 
-patent_count_lgdp_lpop_lgdp_sq_avg_temp_fuel_ar2 <- plot(models$is[[9]])
-
-patent_count_lgdp_lpop_lgdp_sq_avg_temp_fuel_ar2
-
-ggsave("patent_count_lgdp_lpop_lgdp_sq_avg_temp_fuel_ar2.png", plot = patent_count_lgdp_lpop_lgdp_sq_avg_temp_fuel_ar2, device = "png", width = 10, height = 10)
-
-```
-
-
-
-
-## From template_Rmarkdown
-```{r, echo=FALSE, eval=FALSE}
-
-# Functional forms
-
-cl <- makeCluster(6)
-registerDoParallel(cl)
-
-models <- foreach(f = add_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
-  foreach(smpl = c("cty_sample", "AC6_all", "AC1"), .combine = rbind) %:%
-  foreach(a = c(0,1), .combine = rbind) %:%
-  #foreach(b = c(10, 20, 30), .combine = rbind) %:%
-  foreach(p.value = c(0.01, 0.001), .combine = rbind, .errorhandling = "remove") %dopar% {
-    dat <- dfi %>% filter(country %in% samples[[smpl]])
-      is <- isatpanel(
-            data = dat,
-            formula = as.formula(f),
-            index = c("country", "year"),
-            effect = "twoways",
-            iis = TRUE,
-            fesis = TRUE,
-            ar = a,
-            t.pval = p.value,
-            max.block.size = 20
-            )
-          models = tibble(source = f, 
-                          country_sample = smpl, 
-                          year_range = paste0(min(dat$year),":",max(dat$year)), 
-                          p_val = p.value, 
-                          is = list(is),
-                          iis = TRUE,
-                          b_size = 20,
-                          ar = a)
-  }
-
-is2 <- isatpanel(
-            data = dfi %>% filter(country %in% AC1),
-            formula = as.formula("log_buildings_emissions ~ lgdp + lpop + lgdp_sq + lhdd + lcdd"),
-            index = c("country", "year"),
-            effect = "twoways",
-            iis = TRUE,
-            fesis = TRUE,
-            ar = 0,
-            t.pval = 0.001,
-            max.block.size = 20
-            )
+plot(models$is[[9]])
 
 
 ```
-

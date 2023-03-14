@@ -33,14 +33,16 @@ df2 <- df %>%
   filter(prio_year >= 2000)
 
 # Sanity check
-df2 %>% pull(state_name) %>% unique #%>% identical(cty_sample)
+df2 %>% pull(state_name) %>% unique
 
 df2 %>% filter(!complete.cases(.))
 
-#write_csv(df2, "D:\\For_model\\df_w_logs.csv")
+write_csv(df2, ".\\df.csv")
+
 ```
 
 # Functional forms
+
 ```{r}
 controls <- c(" ~ gdp + pop", 
               " ~ gdp + pop + avg_temp", 
@@ -51,28 +53,6 @@ dep_var <- c( "patent_count")
 base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
 
 base_forms
-```
-
-
-
-```{r}
-#   CHECKS 
-```
-
-
-# simple model
-```{r, echo=FALSE, eval=FALSE}
-is <- isatpanel(
-            data = df2,
-            formula = as.formula("patent_count ~ lgdp + lpop"),
-            index = c("state_name", "prio_year"),
-            effect = "twoways",
-            iis = TRUE,
-            fesis = TRUE,
-            t.pval = 0.01,
-            max.block.size = 40
-            )
-is
 ```
 
 
@@ -89,7 +69,7 @@ us_sample <- c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado
 ```{r, echo=FALSE, eval=FALSE}
 
 models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
-  foreach(a = c(0,1,2), .combine = rbind) %:%
+  foreach(a = c(0,1), .combine = rbind) %:%
   #foreach(b = c(10, 20, 30), .combine = rbind) %:%
   foreach(p.value = c(0.01), .combine = rbind, .errorhandling = "remove") %dopar% {
       is <- isatpanel(
@@ -112,6 +92,7 @@ models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', '
                           ar = a)
   }
 
+saveRDS(models, ".\\results\\levels_ar1.RDS")
 
 ```
 
@@ -128,10 +109,6 @@ for (i in 1:nrow(models)){
 ## plot
 ```{r}
 
-for (i in 1:nrow(models)){
-  plot(models$is[[i]])
-}
-
 plot(models$is[[1]])
 
 plot(models$is[[2]])
@@ -144,11 +121,10 @@ plot(models$is[[5]])
 
 plot(models$is[[6]])
 
-plot(models$is[[7]])
-
-plot(models$is[[8]])
-
-plot(models$is[[9]])
-
 
 ```
+## check california by disabling IIS
+```{r}
+
+```
+

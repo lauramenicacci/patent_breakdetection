@@ -31,11 +31,12 @@ df2 <- df %>%
   filter(prio_year >= 2000)
 
 # Sanity check
-df2 %>% pull(state_name) %>% unique #%>% identical(cty_sample)
+df2 %>% pull(state_name) %>% unique 
 
 df2 %>% filter(!complete.cases(.))
 
-write_csv(df2, "D:\\For_model\\df_w_logs.csv")
+#write_csv(df2, ".\\df.csv")
+
 ```
 
 # Functional forms

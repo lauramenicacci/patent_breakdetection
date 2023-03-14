@@ -1,0 +1,179 @@
+---
+title: "plot distributions"
+author: "Laura Menicacci"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+# Libraries
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(gets)
+library(getspanel)
+library(here)
+library(doParallel)
+library(readxl)
+```
+
+# Data & controls 
+```{r, echo=FALSE}
+
+df <- read_csv(".\\model_spec\\df.csv", show_col_types = FALSE)
+
+```
+
+# Descriptive statistics 
+
+## Summary statistics
+
+```{r, echo=FALSE}
+library(psych)
+
+describe(df)
+```
+
+## Boxplot - by year
+```{r, echo=FALSE}
+# Basic box plot
+
+df$prio_year.factor <- factor(df$prio_year)
+
+box_plot_by_year <- ggplot(df) + 
+  geom_boxplot(mapping = aes(x = prio_year.factor,
+                             y = patent_count), 
+               outlier.colour="red",
+                outlier.size=1) +
+  labs(x = "Priority filing year", y =  "Patent count") + theme_bw()
+
+box_plot_by_year
+
+# ggsave("box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
+
+```
+
+## Distributions
+
+### Levels distribution
+```{r}
+
+df %>% 
+  ggplot(aes(x = patent_count)) + geom_histogram(binwidth = 3, linewidth = 3, fill= "lightblue") + theme_bw()
+```
+### Distribution with natural log transformation
+
+```{r}
+df %>% 
+  ggplot(aes(x = log_patent_count)) + geom_histogram(binwidth = 3, linewidth = 3, fill = "lightblue") + theme_bw()
+```
+### Distribution with inverse hyperbolic sine transformation
+```{r}
+ihs <- function(x) {
+    y <- log(x + sqrt(x ^ 2 + 1))
+    return(y)
+}
+
+df2 <- df %>% mutate(ihs_patent_count = ihs(patent_count))
+
+df2 %>% 
+  ggplot(aes(x = ihs_patent_count)) + geom_histogram(binwidth = 3, linewidth = 3, fill = "lightblue") + theme_bw()
+
+
+```
+
+
+# Play around w model & y transformations
+
+## Functional forms
+
+```{r}
+controls <- c(" ~ gdp + pop + avg_temp + fuel") 
+
+dep_var <- c( "patent_count", "log_patent_count", "ihs_patent_count") 
+
+base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
+
+base_forms
+```
+
+
+
+## from analysis_emissions
+```{r, echo=FALSE, eval=FALSE}
+cl <- makeCluster(4)
+registerDoParallel(cl)
+
+us_sample <- c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "North Dakota","Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina","South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington","West Virginia","Wisconsin","Wyoming", "District of Columbia", "Hawaii")
+
+```
+
+
+```{r, echo=FALSE, eval=FALSE}
+
+models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
+  foreach(a = c(0,1), .combine = rbind) %:%
+  #foreach(b = c(10, 20, 30), .combine = rbind) %:%
+  foreach(p.value = c(0.01, 0.001), .combine = rbind, .errorhandling = "remove") %dopar% {
+      is <- isatpanel(
+            data = df2,
+            formula = as.formula(f),
+            index = c("state_name", "prio_year"),
+            effect = "twoways",
+            iis = TRUE,
+            fesis = TRUE,
+            ar = a,
+            t.pval = p.value,
+            max.block.size = 20
+            )
+          models = tibble(source = f, 
+                          year_range = paste0(min(df2$prio_year),":",max(df2$prio_year)), 
+                          p_val = p.value, 
+                          is = list(is),
+                          iis = TRUE,
+                          b_size = 20,
+                          ar = a)
+  }
+
+saveRDS(models, ".\\levels_y_transformations.RDS")
+
+```
+
+
+## have a look
+```{r}
+# readRDS x riplottare 
+
+for (i in 1:nrow(models)){
+  print(models$is[[i]])
+}
+
+```
+
+
+## plot
+```{r}
+
+for (i in 1:nrow(models)){
+  
+  plot(models$is[[i]])
+}
+
+plot(models$is[[1]])
+
+plot(models$is[[2]])
+
+plot(models$is[[3]])
+
+plot(models$is[[4]])
+
+plot(models$is[[5]])
+
+plot(models$is[[6]])
+
+plot(models$is[[7]])
+
+plot(models$is[[8]])
+
+
+```

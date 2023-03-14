@@ -87,44 +87,6 @@ pat <- pat %>%
 ```
 
 
-
-# Summary statistics
-
-```{r, echo=FALSE}
-stats <- pat %>% summarise(across(where(is.numeric), .fns = 
-                     list(min = min,
-                          median = median,
-                          mean = mean,
-                          stdev = sd,
-                          q25 = ~quantile(., 0.25),
-                          q75 = ~quantile(., 0.75),
-                          max = max))) %>%
-  pivot_longer(everything())
-
-stats
-
-```
-
-## Boxplot - by year
-```{r, echo=FALSE}
-# Basic box plot
-
-pat$prio_year.factor <- factor(pat$prio_year)
-
-box_plot_by_year <- ggplot(pat) + 
-  geom_boxplot(mapping = aes(x = prio_year.factor,
-                             y = patent_count), 
-               outlier.colour="red",
-                outlier.size=1) +
-  labs(x = "Priority filing year", y =  "Patent count") + theme_bw()
-
-box_plot_by_year
-
-ggsave("box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
-
-```
-
-
 # Add controls
 
 ## GDP - 1999-2020

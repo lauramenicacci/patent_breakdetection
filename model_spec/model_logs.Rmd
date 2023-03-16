@@ -25,13 +25,12 @@ df2 <- df %>%
          lpop = log(pop),
          lgdp = log(gdp),
          lfuel = log(fuel),
-         lgdp_sq = log(gdp)^2, # ???
+         lgdp_sq = log(gdp)^2,
          ltemp = log(avg_temp),
          log_patent_count = log(patent_count)) %>% 
   filter(prio_year >= 2000)
 
 # Sanity check
-df2 %>% pull(state_name) %>% unique 
 
 df2 %>% filter(!complete.cases(.))
 
@@ -153,7 +152,6 @@ patent_count_lgdp_lpop_lgdp_sq_avg_temp_fuel_ar2
 ggsave("patent_count_lgdp_lpop_lgdp_sq_avg_temp_fuel_ar2.png", plot = patent_count_lgdp_lpop_lgdp_sq_avg_temp_fuel_ar2, device = "png", width = 10, height = 10)
 
 ```
-
 
 
 

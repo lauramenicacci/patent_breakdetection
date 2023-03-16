@@ -116,11 +116,11 @@ for (i in 1:nrow(avg_y)){
 
 df %>% 
   filter(state_name %in% y_high) %>% 
-  ggplot(aes(x = patent_count)) + geom_histogram(binwidth = 3, linewidth = 3, fill= "lightblue") + theme_bw() + theme_bw() + ggtitle("Distribution per high patenting states")
+  ggplot(aes(x = patent_count)) + geom_histogram(colour = "black", fill= "lightblue") + theme_bw() + theme_bw() + ggtitle("Distribution per high patenting states")
 
 df %>% 
   filter(state_name %in% y_low) %>% 
-  ggplot(aes(x = patent_count)) + geom_histogram(binwidth = 3, linewidth = 3, fill= "lightblue") + theme_bw() + theme_bw() + ggtitle("Distribution per low patenting states")
+  ggplot(aes(x = patent_count)) + geom_histogram(colour = "black", fill= "lightblue") + theme_bw() + theme_bw() + ggtitle("Distribution per low patenting states")
 
 ```
 
@@ -258,38 +258,37 @@ saveRDS(models, ".\\results\\levels_gdp_samples_noIIS.RDS")
 
 ```
 
+```{r}
+samples_noIIS <- readRDS(".\\results\\levels_gdp_samples_noIIS.RDS")
+
+for (i in 1:nrow(samples_noIIS)){
+  print(samples_noIIS$is[[i]])
+}
+```
 
 
 ```{r}
-plot(models$is[[1]])
+plot(samples_noIIS$is[[1]])
 
-plot(models$is[[2]])
+plot(samples_noIIS$is[[2]])
 
-plot(models$is[[3]])
+plot(samples_noIIS$is[[3]])
 
-plot(models$is[[4]])
+plot(samples_noIIS$is[[4]])
 
 ```
 ## Plot residuals
 ```{r}
 model_gdp_samples <- readRDS(".\\results\\levels_gdp_samples.RDS")
 
-plot_residuals(levels_y_transformations$is[[5]])
+#plot_residuals(levels_y_transformations$is[[5]])
 
 plot_residuals(model_gdp_samples$is[[1]])
 
+plot_residuals(model_gdp_samples$is[[2]])
 
+plot_residuals(model_gdp_samples$is[[3]])
 
-```
-
-
-
-## Try out all together
-- logs 
-- sampling
-- y transformation
-
-```{r}
+plot_residuals(model_gdp_samples$is[[4]])
 
 ```
-

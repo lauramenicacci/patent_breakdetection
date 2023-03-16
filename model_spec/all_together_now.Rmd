@@ -103,24 +103,43 @@ models
 #  print(levels_y_trans$is[[i]])
 #}
 
-models$is[[27]] # low income countries
+models$is[[28]] # high income countries, ar = 1, logs, pval = 0.001, ihs y
+
+models$is[[26]] # high income countries, ar = 0, logs, pval = 0.001, ihs y
+
+
+models$is[[32]] # low income countries, ar = 1, logs, pval = 0.001, ihs y
+
+
+models$is[[30]] # low income countries, ar = 0, logs, pval = 0.001, ihs y
 
 ```
 
 
 
-## Visualize
+## Visualize high-VS-low gdp countries AR1/AR0
 ```{r}
-plot(models$is[[28]]) # high income countries, ar = 1, logs, pval = 0.001, ihs y
+plot(models$is[[27]]) # high income countries, ar = 1, logs, pval = 0.001, ihs y
 
-plot(models$is[[32]]) # low income countries, ar = 1, logs, pval = 0.001, ihs y
+#plot(models$is[[26]]) # high income countries, ar = 0, logs, pval = 0.001, ihs y
+
+
+plot(models$is[[31]]) # low income countries, ar = 1, logs, pval = 0.001, ihs y
+
+#(models$is[[30]]) # low income countries, ar = 0, logs, pval = 0.001, ihs y
 
 ```
 ## Plot residuals
 ```{r}
-plot_residuals(models$is[[28]])
+plot_residuals(models$is[[28]]) # high income countries, ar = 1, logs, pval = 0.001, ihs y
 
-plot_residuals(models$is[[32]])
+plot_residuals(models$is[[32]]) # low income countries, ar = 1, logs, pval = 0.001, ihs y
+```
+# plot levels
+```{r}
+plot(models$is[[4]]) # levels, ar = 1
+
+plot(models$is[[8]]) # levels
 ```
 
 
@@ -186,4 +205,3 @@ data_per_core <- floor(nrow(df2)/num_of_cores)
 num_of_cores
 data_per_core
 ```
-

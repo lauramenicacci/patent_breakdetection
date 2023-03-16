@@ -1,0 +1,52 @@
+---
+title: "data_viz"
+author: "Laura Menicacci"
+date: "2023-03-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+df <- read_csv(".\\model_spec\\df.csv")
+```
+
+# Descriptive plots
+
+
+## Boxplot - by year
+```{r, echo=FALSE}
+# Basic box plot
+
+df$prio_year.factor <- factor(df$prio_year)
+
+box_plot_by_year <- ggplot(df) + 
+  geom_boxplot(mapping = aes(x = prio_year.factor,
+                             y = patent_count), 
+               outlier.colour="red",
+                outlier.size=1) +
+  labs(x = "Priority filing year", y =  "Patent count") + theme_bw() + ggtitle("International US patent counts (Y02E class)", subtitle = "Summary statistics over the time series") 
+
+box_plot_by_year
+
+ggsave(".\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
+
+```
+
+## Boxplot - by State
+```{r}
+df$prio_year.factor <- factor(df$prio_year)
+
+box_plot_by_state <- ggplot(df) + 
+  geom_boxplot(mapping = aes(x = prio_year.factor,
+                             y = patent_count), 
+               outlier.colour="red",
+                outlier.size=1) +
+  labs(x = "Priority filing year", y =  "Patent count") + facet_wrap(~state_name) + theme_bw() + + ggtitle("International US patent counts (Y02E class)", subtitle = "Summary statistics by State") 
+
+box_plot_by_year
+
+# ggsave(".\\figs_new\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
+
+```
+

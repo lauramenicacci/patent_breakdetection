@@ -143,14 +143,20 @@ pat_all$prio_year <- as.integer(pat_all$prio_year)
 write_csv(pat_all,"D:\\patent_counts_direct_epo_pct.csv")
 
 ```
+
 ```{r, fig.height=10, fig.width=10, echo=FALSE}
 
-pat_all <- read_csv("D:/patent_counts_direct_epo_pct.csv")
+pat_all <- read_csv("D:/PCT_EPO_counts/patent_counts_direct_epo_pct.csv", show_col_types = FALSE)
 
 pat_all_series <- pat_all %>% 
   filter(region != "United States - not regionalised") %>% 
   group_by(region) %>% 
-  ggplot(aes(x = prio_year, y = patent_count)) + geom_line(linewidth = 0.3) + facet_wrap(~region) + theme_bw() +ggtitle("PCT+ direct EPO green patent counts by US State - 1999-2020")
+  ggplot(aes(x = prio_year, y = patent_count)) + 
+  geom_line(linewidth = 0.5, colour = "navy") + 
+  facet_wrap(~region) + 
+  theme_minimal() + 
+  labs(x = "Priority year", y = "Patent count") +
+  ggtitle("Total patent counts by US State (Y02E class)", subtitle = "PCT and direct EPO aggregation")
 
 pat_all_series
 

@@ -137,9 +137,9 @@ plot_residuals(models$is[[32]]) # low income countries, ar = 1, logs, pval = 0.0
 ```
 # plot levels
 ```{r}
-plot(models$is[[4]]) # levels, ar = 1
+plot(models$is[[3]]) # patent_count ~ gdp + pop + avg_temp + fuel, high incomw, pval = 0.010, ar=1
 
-plot(models$is[[8]]) # levels
+plot(models$is[[7]]) # patent_count ~ gdp + pop + avg_temp + fuel, high incomw, pval = 0.010, ar=1
 ```
 
 

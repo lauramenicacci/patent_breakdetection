@@ -283,7 +283,8 @@ gen_p <- function(df, results = TRUE){
 ```{r, echo = FALSE}
 models <- readRDS(".\\levels_y_transformations.RDS")
 
-models %>% filter(source == "patent_count ~ gdp + pop + avg_temp + fuel" & year_range == "2000:2020" & ar == 0 & p_val == "0.01") %>% gen_p(.)
+m <- models %>% filter(source == "patent_count ~ gdp + pop + avg_temp + fuel" & year_range == "2000:2020" & ar == 0 & p_val == "0.01") %>% gen_p(.)
+
 
 ```
 

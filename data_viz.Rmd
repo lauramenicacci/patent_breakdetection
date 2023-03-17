@@ -15,7 +15,7 @@ df <- read_csv(".\\model_spec\\df.csv")
 
 
 ## Boxplot - by year
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.height=8,fig.width=8}
 # Basic box plot
 
 df$prio_year.factor <- factor(df$prio_year)
@@ -25,28 +25,46 @@ box_plot_by_year <- ggplot(df) +
                              y = patent_count), 
                outlier.colour="red",
                 outlier.size=1) +
-  labs(x = "Priority filing year", y =  "Patent count") + theme_bw() + ggtitle("International US patent counts (Y02E class)", subtitle = "Summary statistics over the time series") 
+  labs(x = "Priority filing year", y =  "Patent count") + theme_bw() + ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution over time") 
 
 box_plot_by_year
 
-ggsave(".\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
+ggsave(".\\fig_new\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
 
 ```
 
 ## Boxplot - by State
-```{r}
-df$prio_year.factor <- factor(df$prio_year)
+```{r, fig.height=8,fig.width=8}
 
-box_plot_by_state <- ggplot(df) + 
-  geom_boxplot(mapping = aes(x = prio_year.factor,
-                             y = patent_count), 
-               outlier.colour="red",
-                outlier.size=1) +
-  labs(x = "Priority filing year", y =  "Patent count") + facet_wrap(~state_name) + theme_bw() + + ggtitle("International US patent counts (Y02E class)", subtitle = "Summary statistics by State") 
+box_plot_by_state <- df %>% 
+  group_by(state_name) %>% 
+  ggplot(aes(y = patent_count, x = prio_year)) +
+  geom_boxplot(outlier.colour="red",
+               outlier.size=1) +
+  facet_wrap(~state_name) +
+  scale_x_continuous(limits = c(2000, 2005, 2010, 2015, 2020)) +
+  labs(x = "Priority filing year", y =  "Patent count") + 
+  theme_bw() + 
+  ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by State") 
 
-box_plot_by_year
+box_plot_by_state
 
 # ggsave(".\\figs_new\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
 
+```
+
+## Visualize distribution
+```{r}
+y_dist <- df %>% 
+  ggplot(aes(x = patent_count)) +
+  geom_histogram(fill = "navy", colour = "black") +
+  labs(x = "Dependent variable (y) = patent counts", y = "") + 
+  ggtitle("Distribution of the dependent variable")+
+  theme_bw()
+
+y_dist
+
+ggsave(".\\fig_new\\y_distribution.png", plot = y_dist, device = "png", width = 8, height = 8)
+  
 ```
 

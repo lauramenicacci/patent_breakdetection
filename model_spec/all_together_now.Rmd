@@ -27,10 +27,9 @@ library(gridExtra)
 
 df <- read_csv(".\\df.csv", show_col_types = FALSE)
 
-df2 <- df %>% mutate(ihs_patent_count = asinh(patent_count))
+df2 <- df %>% mutate(ihs_patent_count = asinh(patent_count), 
+                     log_patent_count = log(patent_count +1) )
 
-df_log_noinf <- df2 %>% 
-  filter(!(log_patent_count == "-Inf")) # drop 37 observations
 
 samples <- list(gdp_high, gdp_low)
 
@@ -119,16 +118,26 @@ models$is[[30]] # low income countries, ar = 0, logs, pval = 0.001, ihs y
 
 ## Visualize high-VS-low gdp countries AR1/AR0
 ```{r}
-plot(models$is[[27]]) # high income countries, ar = 1, logs, pval = 0.001, ihs y
+
+models <- readRDS(".\\results\\logs_ytrans_samples.RDS")
+
+y_transf_logs_sample_high <- plot(models$is[[27]]) # high income countries, ar = 1, logs, pval = 0.001, ihs y
+
+ggsave("y_transf_logs_sample_high.png", plot = y_transf_logs_sample_high, device = "png", width = 10, height = 10)
 
 #plot(models$is[[26]]) # high income countries, ar = 0, logs, pval = 0.001, ihs y
 
 
-plot(models$is[[31]]) # low income countries, ar = 1, logs, pval = 0.001, ihs y
+y_transf_logs_sample_low <- plot(models$is[[31]]) # low income countries, ar = 1, logs, pval = 0.001, ihs y
+
+ggsave("y_transf_logs_sample_low.png", plot = y_transf_logs_sample_low, device = "png", width = 10, height = 10)
+
 
 #(models$is[[30]]) # low income countries, ar = 0, logs, pval = 0.001, ihs y
 
 ```
+
+
 ## Plot residuals
 ```{r}
 plot_residuals(models$is[[28]]) # high income countries, ar = 1, logs, pval = 0.001, ihs y
@@ -137,31 +146,51 @@ plot_residuals(models$is[[32]]) # low income countries, ar = 1, logs, pval = 0.0
 ```
 # plot levels
 ```{r}
-plot(models$is[[3]]) # patent_count ~ gdp + pop + avg_temp + fuel, high incomw, pval = 0.010, ar=1
+plot(models$is[[4]]) # patent_count ~ gdp + pop + avg_temp + fuel, high incomw, pval = 0.010, ar=1
 
-plot(models$is[[7]]) # patent_count ~ gdp + pop + avg_temp + fuel, high incomw, pval = 0.010, ar=1
+plot(models$is[[8]]) # levels
+```
+
+## check n of cores available for parall 
+```{r}
+num_of_cores <- detectCores()
+data_per_core <- floor(nrow(df2)/num_of_cores)
+
+num_of_cores
+data_per_core
+```
+
+## Model - try without non-patenting states
+
+Alaska, Mississippi, North Dakota, West Virginia, Wyoming
+
+```{r}
+nonpat <- c("Alaska", "Mississippi", "North Dakota", "West Virginia", "Wyoming")
+
+
+df3 <- df2 %>% 
+  filter(!(state_name %in% nonpat)) %>% 
+  filter(prio_year <= 2019)
 ```
 
 
-## Model w/ only logged y - dropping 37 observations
 ```{r}
+controls <- c(" ~ lgdp + gdp_sq + lpop + lgdp_sq + avg_temp + lfuel") # " ~ gdp + pop + avg_temp + fuel", 
 
-controls <- c(" ~ gdp + pop + avg_temp + fuel", 
-              " ~ lgdp + gdp_sq + lpop + lgdp_sq + avg_temp + lfuel") 
-
-dep_var <- c( "log_patent_count") 
+dep_var <- c( "patent_count", "ihs_patent_count") 
 
 base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
 
-cl <- makeCluster(4)
+
+cl <- makeCluster(3)
 registerDoParallel(cl)
 
-models_noinf_samples <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
-  foreach(smpl = c(1, 2), .combine = rbind) %:%
+models_nonpat <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
+  #foreach(smpl = c(1, 2), .combine = rbind) %:%
   foreach(a = c(0,1), .combine = rbind) %:%
   #foreach(b = c(10, 20, 30), .combine = rbind) %:%
-  foreach(p.value = c(0.01, 0.001), .combine = rbind, .errorhandling = "remove") %dopar% {
-    dat <- df_log_noinf %>% filter(state_name %in% samples[[smpl]])
+  foreach(p.value = c(0.01), .combine = rbind, .errorhandling = "remove") %dopar% {
+    dat <- df3
       is <- isatpanel(
             data = dat,
             formula = as.formula(f),
@@ -173,9 +202,9 @@ models_noinf_samples <- foreach(f = base_forms, .combine = rbind, .packages = c(
             t.pval = p.value,
             max.block.size = 20
             )
-          models_noinf_samples = tibble(source = f, 
-                          state_sample = smpl,      
-                          year_range = paste0(min(df_log_noinf$prio_year),":",max(df_log_noinf$prio_year)), 
+          models_nonpat = tibble(source = f, 
+                          #state_sample = smpl,      
+                          year_range = paste0(min(df3$prio_year),":",max(df3$prio_year)),
                           p_val = p.value, 
                           is = list(is),
                           iis = TRUE,
@@ -183,25 +212,17 @@ models_noinf_samples <- foreach(f = base_forms, .combine = rbind, .packages = c(
                           ar = a)
   }
 
-saveRDS(models_noinf_samples, ".\\logs_ynoinf_samples.RDS")
+stopCluster(cl)
+
+saveRDS(models_nonpat, ".\\results\\models_nonpat.RDS")
 
 ```
 
-```{r}
+## Viz fit
+```{r, fig.height=10, fig.width=10}
 
-models_noinf_samples
+plot(models_nonpat$is[[2]])
+
 
 ```
-```{r}
-plot(models_noinf_samples$is[[12]]) # high income countries, ar = 1, logs, pval = 0.001, logged y
 
-plot(models_noinf_samples$is[[16]]) # low income countries, ar = 1, logs, pval = 0.001, logged y
-```
-## check n of cores available for parall 
-```{r}
-num_of_cores <- detectCores()
-data_per_core <- floor(nrow(df2)/num_of_cores)
-
-num_of_cores
-data_per_core
-```

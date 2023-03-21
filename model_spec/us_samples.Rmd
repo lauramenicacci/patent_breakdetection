@@ -68,7 +68,7 @@ gdp_high<- c()
 
 for (i in 1:nrow(avg_gdp)){
   if (avg_gdp[i, 2] >= gdp_median){
-    gdp_high <- append(gdp_high, avg_gdp[[i, 1]])
+    gdp_high <- append(gdp_high, avg_gdp[[i, 1]]) # la mediana è un quantile
                        }  else {
     gdp_low <- append(gdp_low, avg_gdp[[i, 1]])
                       }
@@ -106,7 +106,7 @@ y_low <- c()
 y_high<- c()
 
 for (i in 1:nrow(avg_y)){
-  if (avg_y[i, 2] >= patent_count_median){
+  if (avg_y[i, 2] >= patent_count_median){ 
     y_high <- append(y_high, avg_y[[i, 1]])
                        }  else {
     y_low <- append(y_low, avg_y[[i, 1]])
@@ -290,5 +290,40 @@ plot_residuals(model_gdp_samples$is[[2]])
 plot_residuals(model_gdp_samples$is[[3]])
 
 plot_residuals(model_gdp_samples$is[[4]])
+
+```
+## Drop non-patenting states
+
+### Low gdp 
+```{r}
+
+box_plot_by_low_gdp <- df %>% 
+  filter(state_name %in% gdp_low) %>% 
+  ggplot(aes(y = patent_count)) +
+  geom_boxplot(outlier.colour="red",
+               outlier.size=1) +
+  facet_wrap(~state_name, scales = "free_y") +
+  labs(x = "Priority filing year", y =  "Patent count") + 
+  theme_bw() + 
+  ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by low income state") 
+
+box_plot_by_low_gdp
+
+
+```
+
+### High gdp 
+```{r}
+box_plot_by_high_gdp <- df %>% 
+  filter(state_name %in% gdp_high) %>% 
+  ggplot(aes(y = patent_count)) +
+  geom_boxplot(outlier.colour="red",
+               outlier.size=1) +
+  facet_wrap(~state_name, scales = "free_y") +
+  labs(x = "Priority filing year", y =  "Patent count") + 
+  theme_bw() + 
+  ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by high income state") 
+
+box_plot_by_high_gdp
 
 ```

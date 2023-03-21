@@ -38,11 +38,10 @@ ggsave(".\\fig_new\\box_plot_by_year.png", plot = box_plot_by_year, device = "pn
 
 box_plot_by_state <- df %>% 
   group_by(state_name) %>% 
-  ggplot(aes(y = patent_count, x = prio_year)) +
+  ggplot(aes(y = patent_count)) +
   geom_boxplot(outlier.colour="red",
                outlier.size=1) +
-  facet_wrap(~state_name) +
-  scale_x_continuous(limits = c(2000, 2005, 2010, 2015, 2020)) +
+  facet_wrap(~state_name, scales = "free_y") +
   labs(x = "Priority filing year", y =  "Patent count") + 
   theme_bw() + 
   ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by State") 

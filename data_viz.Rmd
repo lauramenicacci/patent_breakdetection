@@ -51,6 +51,52 @@ box_plot_by_state
 # ggsave(".\\figs_new\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
 
 ```
+## Non-patenting states selection
+
+Mechanical: scegli tutti gli stati che 
+```{r}
+df %>% 
+  ggplot(aes(x = patent_count))+ geom_boxplot()
+```
+## Find out which states have a distribution that is within the first percentile range
+
+```{r}
+q25 <- quantile(df$patent_count, 0.25)
+
+max_pat <- df %>% # max patent count 
+  select(state_name, patent_count) %>% 
+  group_by(state_name) %>% 
+  summarise(max = max(patent_count, na.rm=TRUE))
+
+nonpat_q25 <- c() # only Alaska
+
+for (i in 1:nrow(max_pat)){
+  if (max_pat[i, 2] <= q25[[1]]){
+    nonpat_q25 <- append(nonpat_q25, max_pat[[i, 1]]) 
+                       }
+}
+
+median <- median(df$patent_count)
+
+nonpat_median <- c() 
+
+for (i in 1:nrow(max_pat)){
+  if (max_pat[i, 2] <= median){
+    nonpat_median <- append(nonpat_median, max_pat[[i, 1]]) 
+                       }
+}
+
+
+# df %>% 
+# group_by(state_name) %>% 
+
+# group by state + crea stat con massimi val per ogni stato + se il max è min o uguale al q25 allora appendi nella lista --> sottrai gli stati nella lista dalla lista tot us states
+
+#
+
+```
+
+
 
 ## Visualize distribution
 ```{r}

@@ -52,13 +52,11 @@ stats
 
 us_sample <- c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "North Dakota","Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina","South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington","West Virginia","Wisconsin","Wyoming", "District of Columbia", "Hawaii")
 
-# create two samples on gdp 
+# create two samples based on median on gdp 
 
 gdp_median <- stats[[16, 2]]
 
-# average gdp over time 
-
-avg_gdp <- df %>% 
+avg_gdp <- df %>% # average gdp over time 
   select(state_name, gdp) %>% 
   group_by(state_name) %>% 
   summarise(mean = mean(gdp, na.rm=TRUE))
@@ -95,9 +93,7 @@ df %>%
 
 patent_count_median <- stats[[9, 2]]
 
-# average y over time 
-
-avg_y <- df %>% 
+avg_y <- df %>% # average y over time 
   select(state_name, patent_count) %>% 
   group_by(state_name) %>% 
   summarise(mean = mean(patent_count, na.rm=TRUE))

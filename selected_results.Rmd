@@ -52,72 +52,45 @@ box_plot_by_state <- df %>%
   geom_boxplot(outlier.colour="red",
                outlier.size=1) +
   facet_wrap(~state_name, scales = "free_y") +
-  labs(x = "Priority filing year", y =  "Patent count") + 
+  labs(x = "", y =  "Patent count") + 
   theme_bw() + 
-  ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by State") 
+  ggtitle("International US patent counts (Y02E class)", subtitle = "Boxplot by State") 
 
 box_plot_by_state
 
 ```
 
+## Histogram & boxplot
+```{r, echo=FALSE, fig.height=7,fig.width=7}
 
-# Distribution of y (patent counts) with removed states
+stats_pat <- df %>% # create df with stats needed: mean, median, max by state
+  select(state_name, patent_count) %>% 
+  group_by(state_name) %>% 
+  summarise(median = median(patent_count, na.rm=TRUE), 
+            mean = mean(patent_count, na.rm=TRUE), 
+            q75 = quantile(patent_count, 0.75), 
+            max = max(patent_count, na.rm=TRUE))
+
+box <- stats_pat %>% 
+  ggplot(aes(x = mean))+ 
+  geom_boxplot(colour = "black") +
+  xlab("")+
+  ylab("") +
+  theme_bw()
+
+hist <- stats_pat %>% 
+  ggplot(aes(x = mean)) +
+  stat_bin(bins = 30, fill = "navy", colour = "black") +
+  xlab("") +
+  ylab("") +
+  theme_bw()
 
 
-```{r, echo=FALSE, eval=FALSE}
-
-df %>% 
-  ggplot(aes(x = patent_count)) + geom_boxplot() + ggtitle("Total distribution of patent counts")
+box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "Y02E class patent counts. State mean distribution ", bottom = "State mean patent counts")
 
 
-df %>% 
-  filter(state_name %in% nonpat_visual) %>% 
-  ggplot(aes(x = patent_count)) + 
-  geom_boxplot()+
-  ggtitle("Total distribution of patent counts without 5 states selected visually")
-  
-
-df %>% 
-  filter(state_name %in% nonpat_mechanical) %>% 
-  ggplot(aes(x = patent_count)) + 
-  geom_boxplot()+
-  ggtitle("Total distribution of patent counts without 13 states selected mechanically")
-  
 ```
 
-# State choice
-
-Removed non-patenting states. Created two samples following two criteria:
-
-**"Visual"** method: plotted distribution by state and removed all states that had overall total patenting equal or less than 5, so very few counts overall. 5 states fell into this criteria.
- The removed states are the following:
- 
- - Alaska
- - Mississippi
- - North Dakota 
- - West Virginia
- - Wyoming
- 
-Rmk: there are still very low patenting states (e.g. Nebraska, Arkansas, Maine, Louisiana, Kansas, Hawaii)
-
-**Mechanical** method: selected states whose distribution fell entirely below the median of y. 13 states fell into this criteria. 
- The removed states are the following:
- 
- - "Alabama" 
- - "Alaska"
- - "District of Columbia" 
- - "Kansas"      
- - "Kentucky"  
- - "Louisiana" 
- - "Maine"  
- - "Mississippi"  
- - "Montana"
- - "Nebraska"   
- - "North Dakota"   
- - "West Virginia" 
- - "Wyoming"             
- 
-Potential problem of this approach: give too much importance to outliers!! Maybe take the 75th quantile? 
 
 ```{r, include = FALSE}
 # Plotting functions
@@ -165,13 +138,54 @@ gen_p <- function(df, results = TRUE, auto = FALSE){
 }
 ```
 
+# Updates {.tabset}
 
-# Overview: Preliminary results {.tabset}
+ * Removed gdp squared control 
+ 
+ * Removed fuel control. Current model specifications: 
+    - patent_count ~ lgdp + lpop + lgdp_sq + avg_temp     
+    - log_patent_count ~ lgdp + lpop + lgdp_sq + avg_temp
+    - ihs_patent_count ~ lgdp + lpop + lgdp_sq + avg_temp
+ 
+ * Tried out different thresholds for dropping patenting states using State *mean* of y. **Rule: if mean patent count of State is less or equal the ith percentile of the distribution of mean patent counts by State, drop**. The sampling thresholds used in the models are the following:
+  
+    - **us_q20**: States whose mean of y <= 20th percentile of the mean distribution of y. States removed are Alaska, Mississippi, Montana, North Dakota West Virginia, Wyoming **(6 States)**. 
+    - **us_q30**: States whose mean of y <= 30th percentile of the mean distribution of y. States  removed are Alabama, Alaska, Arkansas, Hawaii, Kansas, Louisiana, Maine, Mississippi, Montana,   Nebraska, North Dakota, South Dakota, Vermont, West Virginia, Wyoming **(15 States)**.
+    
+    Also considered **us_q25**: States whose mean y <= 25th percentile of the mean distribution of y. **8 States** are included: Alaska, Mississippi, Montana, North Dakota West Virginia, Wyoming, Arkansas, Nebraska (= the 6 states included in us_q20 but + Arkansas + Nebraska). Not included this sample in the model because Arkansas and Nebraska resulted to have multiple breaks in the ihs and log  specifications, and this can imply that I am potentially omitting important information for my research question. 
+    - Included **full sample (us_all)** for comparison
 
-Model specifications:
- * AR(0,1)
- * y with ihs transformation, y with log+1 transformation, normal y
- * p-value = 0.01, 0.05
+ * **p-values**: 0.01, 0.05
+ * **AR terms**: 0,1
+ 
+# Distribution of y (patent counts) with removed states {.tabset}
+
+```{r, echo=FALSE, fig.height=7,fig.width=7}
+
+nonpat_q20 <- c("Alaska", "Mississippi", "Montana", "North Dakota", "West Virginia", "Wyoming" )
+
+nonpat_q30 <- c("Alabama", "Alaska","Arkansas",  "Hawaii","Kansas","Louisiana", "Maine", "Mississippi",   "Montana","Nebraska", "North Dakota", "South Dakota", "Vermont",  "West Virginia", "Wyoming")
+
+p1 <- stats_pat %>% 
+  ggplot(aes(x = mean)) + geom_boxplot() + ggtitle("Total distribution")
+
+
+p2 <- stats_pat %>% 
+  filter(!state_name %in% nonpat_q20) %>% 
+  ggplot(aes(x = mean)) + 
+  geom_boxplot()+
+  ggtitle("Distribution removing States with mean <= 20th percentile")
+  
+
+p3 <- stats_pat %>% 
+  filter(!state_name %in% nonpat_q30) %>% 
+  ggplot(aes(x = mean)) + 
+  geom_boxplot()+
+  ggtitle("Distribution removing States with mean <= 30th percentile")
+
+means_change_dist <- grid.arrange(p1,p2,p3, ncol=1, nrow=3, respect = FALSE,  top = "Y02E class patent counts. State mean distributions ", bottom = "State mean patent counts")
+  
+```
 
 ## AR0 {.tabset}
 
@@ -230,11 +244,11 @@ new_results %>%
 ```
 
 
-# Analysis excluding 2020 
+# Analysis excluding 2020{.tabset} 
 
 ## AR(0) {.tabset}
 
-```{r}
+```{r  ar0_2019 , echo = FALSE, results = 'asis', cache = TRUE}
 # mod prep
 results_2019 <- readRDS(here("model_spec/results/models_2019.RDS")) %>% 
   separate(source, into = c("dep","formula"), sep = "[~]", remove = FALSE) %>%
@@ -242,7 +256,7 @@ results_2019 <- readRDS(here("model_spec/results/models_2019.RDS")) %>%
          formula = trimws(formula),
          mod_name = case_when(grepl("lgdp_sq", source) & grepl("lpop", source) ~ "Log controls"))
   
-results_2019
+#results_2019
 
 results_2019 %>%
   filter(ar == 0 & p_val == 0.01) %>% 
@@ -271,7 +285,7 @@ results_2019 %>%
 
 ## AR(1) {.tabset}
 
-```{r}
+```{r  ar1_2019, echo = FALSE, results = 'asis', cache = TRUE}
 results_2019 %>%
   filter(ar == 1) %>% 
        dplyr::group_split(dep) %>%

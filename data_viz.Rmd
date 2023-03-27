@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(gridExtra)
+library(packHV)
 
 df <- read_csv(".\\model_spec\\df.csv")
 ```
@@ -56,18 +57,26 @@ box_plot_by_state
 box <- df %>% 
   ggplot(aes(x = patent_count))+ 
   geom_boxplot(colour = "black") +
+  xlab("")+
+  ylab("") +
   theme_bw()
 
 hist <- df %>% 
   ggplot(aes(x = patent_count)) +
-  geom_histogram(fill = "navy", colour = "black") +
-  labs(x = "Dependent variable (y) = patent counts", y = "") +
+  stat_bin(bins = 30, fill = "navy", colour = "black") +
+  xlab("") +
+  ylab("") +
   theme_bw()
 
 
-grid.arrange(box,hist, ncol=1, nrow=2, top = "Y02E class patent counts. Total y distribution")
+box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "Y02E class patent counts. Total y distribution", bottom = "Dependent variable (y) = patent counts")
+
+#hist_boxplot(df$patent_count, col = "lightblue", freq = TRUE, breaks = 20) + 
+
+ggsave(".\\figs_new\\box_hist_dist.png", plot = box_hist_dist, device = "png", width = 8, height = 8)
 
 ```
+
 ## Histogram - entire distribution
 ```{r}
 

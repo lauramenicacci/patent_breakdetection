@@ -7,12 +7,12 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(tidyverse)
+library(gridExtra)
 
 df <- read_csv(".\\model_spec\\df.csv")
 ```
 
 # Descriptive plots
-
 
 ## Boxplot - by year
 ```{r, echo=FALSE,fig.height=8,fig.width=8}
@@ -42,74 +42,147 @@ box_plot_by_state <- df %>%
   geom_boxplot(outlier.colour="red",
                outlier.size=1) +
   facet_wrap(~state_name, scales = "free_y") +
-  labs(x = "Priority filing year", y =  "Patent count") + 
+  labs(x = "", y =  "Patent count") + 
   theme_bw() + 
   ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by State") 
 
 box_plot_by_state
 
-# ggsave(".\\figs_new\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
+#ggsave(".\\figs_new\\box_plot_by_state.png", plot = box_plot_by_state, device = "png", width = 10, height = 10)
 
 ```
-## Non-patenting states selection
-
-Mechanical: scegli tutti gli stati che 
+## Boxplot - entire distribution
 ```{r}
-df %>% 
-  ggplot(aes(x = patent_count))+ geom_boxplot()
-```
-## Find out which states have a distribution that is within the first percentile range
+box <- df %>% 
+  ggplot(aes(x = patent_count))+ 
+  geom_boxplot(colour = "black") +
+  theme_bw()
 
-```{r}
-q25 <- quantile(df$patent_count, 0.25)
-
-max_pat <- df %>% # max patent count 
-  select(state_name, patent_count) %>% 
-  group_by(state_name) %>% 
-  summarise(max = max(patent_count, na.rm=TRUE))
-
-nonpat_q25 <- c() # only Alaska
-
-for (i in 1:nrow(max_pat)){
-  if (max_pat[i, 2] <= q25[[1]]){
-    nonpat_q25 <- append(nonpat_q25, max_pat[[i, 1]]) 
-                       }
-}
-
-median <- median(df$patent_count)
-
-nonpat_median <- c() 
-
-for (i in 1:nrow(max_pat)){
-  if (max_pat[i, 2] <= median){
-    nonpat_median <- append(nonpat_median, max_pat[[i, 1]]) 
-                       }
-}
-
-
-# df %>% 
-# group_by(state_name) %>% 
-
-# group by state + crea stat con massimi val per ogni stato + se il max è min o uguale al q25 allora appendi nella lista --> sottrai gli stati nella lista dalla lista tot us states
-
-#
-
-```
-
-
-
-## Visualize distribution
-```{r}
-y_dist <- df %>% 
+hist <- df %>% 
   ggplot(aes(x = patent_count)) +
   geom_histogram(fill = "navy", colour = "black") +
-  labs(x = "Dependent variable (y) = patent counts", y = "") + 
-  ggtitle("Distribution of the dependent variable")+
+  labs(x = "Dependent variable (y) = patent counts", y = "") +
   theme_bw()
+
+
+grid.arrange(box,hist, ncol=1, nrow=2, top = "Y02E class patent counts. Total y distribution")
+
+```
+## Histogram - entire distribution
+```{r}
+
 
 y_dist
 
-ggsave(".\\fig_new\\y_distribution.png", plot = y_dist, device = "png", width = 8, height = 8)
+#ggsave(".\\fig_new\\y_distribution.png", plot = y_dist, device = "png", width = 8, height = 8)
   
 ```
+
+
+# Non-patenting states selection
+
+## Statistical information
+
+Goal: selecting non-patenting US states that have such low values that they are not relevant for the analysis.
+Motivation: improve fit.
+
+```{r}
+us_all <- c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "North Dakota","Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina","South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington","West Virginia","Wisconsin","Wyoming", "District of Columbia", "Hawaii")
+
+stats_pat <- df %>% # create df with stats needed: mean, median, max by state
+  select(state_name, patent_count) %>% 
+  group_by(state_name) %>% 
+  summarise(median = median(patent_count, na.rm=TRUE), 
+            mean = mean(patent_count, na.rm=TRUE), 
+            q75 = quantile(patent_count, 0.75), 
+            max = max(patent_count, na.rm=TRUE))
+
+stats_pat %>% ggplot(aes(x = mean)) + geom_boxplot()
+
+stats_pat %>% ggplot(aes(x = mean)) + stat_bin(bins = 30)
+
+```
+We can observe that half of the observations - which in this case are mean value of patent count of states - fall within 
+
+
+## Threshold selection
+
+```{r}
+
+median <- median(df$patent_count) # median of entire distribution
+
+######################################
+
+nonpat_median <- c() # 24 states
+
+for (i in 1:nrow(stats_pat)){
+  if (stats_pat[i, 3] <= median){  # if mean of state is less than median of entire dist: drop
+    nonpat_median <- append(nonpat_median, stats_pat[[i, 1]]) 
+                       }
+}
+
+##################################
+
+q20 <- quantile(df$patent_count, 0.20)
+
+nonpat_q20 <- c() #  states
+
+for (i in 1:nrow(stats_pat)){
+  if (stats_pat[i, 3] <= q20[[1]]){ # if mean of state is less than q20 of entire dist: drop
+    nonpat_q20 <- append(nonpat_q20, stats_pat[[i, 1]]) 
+                       }
+}
+
+#################################
+
+
+q25 <- quantile(df$patent_count, 0.25)
+
+nonpat_q25 <- c() #  states
+
+for (i in 1:nrow(stats_pat)){
+  if (stats_pat[i, 3] <= q25[[1]]){ # if mean of state is less than q25 of entire dist: drop
+    nonpat_q25 <- append(nonpat_q25, stats_pat[[i, 1]]) 
+                       }
+}
+
+#################################
+
+q30 <- quantile(df$patent_count, 0.30)
+
+nonpat_q30 <- c() # 15
+
+
+for (i in 1:nrow(stats_pat)){
+  if (stats_pat[i, 3] <= q30[[1]]){ # if mean of state is less than q30 of entire dist: drop
+    nonpat_q30 <- append(nonpat_q30, stats_pat[[i, 1]]) 
+                       }
+}
+
+```
+
+```{r}
+
+stats_pat %>% 
+  ggplot(aes(x = mean)) + 
+  geom_boxplot()
+
+stats_pat %>% 
+  filter(!state_name %in% nonpat_q20) %>% 
+  ggplot(aes(x = mean)) + 
+  geom_boxplot()
+
+stats_pat %>% 
+  filter(!state_name %in% nonpat_q25) %>% 
+  ggplot(aes(x = mean)) + 
+  geom_boxplot()
+
+stats_pat %>% 
+  filter(!state_name %in% nonpat_q30) %>% 
+  ggplot(aes(x = mean)) + 
+  geom_boxplot()
+
+```
+
+
 

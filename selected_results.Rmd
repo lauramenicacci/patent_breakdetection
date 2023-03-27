@@ -10,7 +10,7 @@ options(width = 3000)
 ```
 
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE, max.height = '300px', fig.width = 16, fig.height = 8) #fig.show="hold",,
 
 library(data.table)
@@ -30,14 +30,11 @@ conflict_prefer("first", "dplyr")
 conflict_prefer("lag", "dplyr")
 
 # mod prep
-new_results <- readRDS(here("model_spec/results/models_nonpat.RDS")) %>% 
+new_results <- readRDS(here("model_spec/results/models_nonpat_2.RDS")) %>% 
   separate(source, into = c("dep","formula"), sep = "[~]", remove = FALSE) %>%
   mutate(dep = str_to_title(gsub("_"," ",trimws(dep))),
          formula = trimws(formula),
-         mod_name = case_when(grepl("ihs", source) & grepl("gdp", source) ~ "Level controls",
-                              !grepl("ihs", source) & grepl("lgdp", source) ~ "Log controls",
-                              grepl("ihs", source) & grepl("lgdp", source) ~ "Log controls",
-                              !grepl("ihs", source) & grepl("gdp", source) ~ "Level controls"))
+         mod_name = case_when(grepl("lgdp_sq", source) & grepl("lpop", source) ~ "Log controls"))
   
 new_results
 
@@ -47,7 +44,7 @@ new_results
 
 ```{r, echo = FALSE, fig.height=8,fig.width=8}
 
-df <- read_csv(".\\model_spec\\df.csv")
+df <- read_csv(".\\model_spec\\df.csv", show_col_types = FALSE)
 
 box_plot_by_state <- df %>% 
   group_by(state_name) %>% 
@@ -61,17 +58,40 @@ box_plot_by_state <- df %>%
 
 box_plot_by_state
 
-df %>% 
-  ggplot(aes(x = patent_count))+ 
-  geom_boxplot()
+```
 
+
+# Distribution of y (patent counts) with removed states
+
+
+```{r, echo=FALSE, eval=FALSE}
+
+df %>% 
+  ggplot(aes(x = patent_count)) + geom_boxplot() + ggtitle("Total distribution of patent counts")
+
+
+df %>% 
+  filter(state_name %in% nonpat_visual) %>% 
+  ggplot(aes(x = patent_count)) + 
+  geom_boxplot()+
+  ggtitle("Total distribution of patent counts without 5 states selected visually")
+  
+
+df %>% 
+  filter(state_name %in% nonpat_mechanical) %>% 
+  ggplot(aes(x = patent_count)) + 
+  geom_boxplot()+
+  ggtitle("Total distribution of patent counts without 13 states selected mechanically")
+  
 ```
 
 # State choice
 
 Removed non-patenting states. Created two samples following two criteria:
- * "Visual" method: plotted distribution by state and removed all states that had overall total patenting equal or less than 5, so very few counts overall. 5 states fell into this criteria.
+
+**"Visual"** method: plotted distribution by state and removed all states that had overall total patenting equal or less than 5, so very few counts overall. 5 states fell into this criteria.
  The removed states are the following:
+ 
  - Alaska
  - Mississippi
  - North Dakota 
@@ -80,8 +100,9 @@ Removed non-patenting states. Created two samples following two criteria:
  
 Rmk: there are still very low patenting states (e.g. Nebraska, Arkansas, Maine, Louisiana, Kansas, Hawaii)
 
- * Mechanical method: selected states whose distribution fell entirely below the median of y. 13 states fell into this criteria 
+**Mechanical** method: selected states whose distribution fell entirely below the median of y. 13 states fell into this criteria. 
  The removed states are the following:
+ 
  - "Alabama" 
  - "Alaska"
  - "District of Columbia" 
@@ -95,6 +116,8 @@ Rmk: there are still very low patenting states (e.g. Nebraska, Arkansas, Maine, 
  - "North Dakota"   
  - "West Virginia" 
  - "Wyoming"             
+ 
+Potential problem of this approach: give too much importance to outliers!! Maybe take the 75th quantile? 
 
 ```{r, include = FALSE}
 # Plotting functions
@@ -150,13 +173,14 @@ Model specifications:
  * y with ihs transformation, y with log+1 transformation, normal y
  * p-value = 0.01, 0.05
 
-Best fit to me: patent_count with logs, AR = 1 
-
 ## AR0 {.tabset}
-```{r prelim, echo = FALSE, results = 'asis', cache = TRUE}
+
+p_value = 0.01 only here
+
+```{r ar0, echo = FALSE, results = 'asis', cache = TRUE}
 
  new_results %>%
-  filter(ar == 0) %>% 
+  filter(ar == 0 & p_val == 0.01) %>% 
        dplyr::group_split(dep) %>%
        purrr::iwalk(.,~{
          name <- unique(.x$dep)
@@ -177,11 +201,78 @@ Best fit to me: patent_count with logs, AR = 1
        })
 
 ```
+
 ## AR1 {.tabset}
 
-```{r}
+```{r ar1, echo = FALSE, results = 'asis', cache = TRUE}
 
 new_results %>%
+  filter(ar == 1) %>%  
+       dplyr::group_split(dep) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$dep)
+         cat('### ', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+```
+
+
+# Analysis excluding 2020 
+
+## AR(0) {.tabset}
+
+```{r}
+# mod prep
+results_2019 <- readRDS(here("model_spec/results/models_2019.RDS")) %>% 
+  separate(source, into = c("dep","formula"), sep = "[~]", remove = FALSE) %>%
+  mutate(dep = str_to_title(gsub("_"," ",trimws(dep))),
+         formula = trimws(formula),
+         mod_name = case_when(grepl("lgdp_sq", source) & grepl("lpop", source) ~ "Log controls"))
+  
+results_2019
+
+results_2019 %>%
+  filter(ar == 0 & p_val == 0.01) %>% 
+       dplyr::group_split(dep) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$dep)
+         cat('### ', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+
+```
+
+
+## AR(1) {.tabset}
+
+```{r}
+results_2019 %>%
   filter(ar == 1) %>% 
        dplyr::group_split(dep) %>%
        purrr::iwalk(.,~{
@@ -201,8 +292,5 @@ new_results %>%
          cat('\n')
          cat('\n')
        })
-
 ```
-
-
 

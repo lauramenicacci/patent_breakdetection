@@ -123,8 +123,3 @@ plot(models$is[[6]])
 
 
 ```
-## check california by disabling IIS
-```{r}
-
-```
-

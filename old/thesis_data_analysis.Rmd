@@ -1,0 +1,228 @@
+---
+title: "thesis_data_analysis"
+author: "Laura Menicacci"
+date: "2023-02-01"
+output: html_document
+---
+
+# libraries
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+# Data
+
+## Patent by technology
+
+from https://stats.oecd.org/index.aspx?queryid=29068# 
+
+data selected:
+- technology domain: CLIMATE CHANGE MITIGATION technologies related to ENERGY GENERATION, TRANSMISSION OR DISTRIBUTION (IPC class Y02E) --> cannot select specific tech 
+- country sample: all OECD + BRIICS economies
+- selected both priority (date when the first patent for a specific technology was granted) and application date
+- Value: number of patents using country's fractional value
+- year span: 1976-2020
+
+```{r}
+pat <- read_csv("D:\\Aggregated\\PATS_IPC_01022023161250362.csv") 
+
+# pat$Country %>% unique()
+
+EU_15 <- c("AUT","BEL", "DNK", "FIN", "FRA", "DEU", "GRC",
+                      "IRL", "ITA", "LUX", "NLD", "PRT", "ESP", "SWE", "GBR")
+
+top_3 <- c("JPN", "USA", "DEU")
+
+pat %>% 
+  filter(Country %in% c("Germany")) %>%  # example with Germany
+    filter(`Technology domains & IPC` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  ggplot(aes(x = Time, y = Value, group = `Reference Date`, fill = `Reference Date`)) + geom_col(position = "dodge", width = 0.8) + theme_bw() + scale_fill_brewer(palette = "Paired") + ggtitle("Number of Y02E German patents by Reference Date")
+
+pat %>% 
+  filter(LOCATION %in% EU_15) %>% 
+  filter(`Reference Date` %in% c("Priority date")) %>%
+  filter(`Patents Office & Patents Families` %in% c("Patent applications to the EPO")) %>% 
+  filter(IPC %in% c("TOTAL")) %>% 
+  ggplot(aes(x = Time, y = Value, colour = LOCATION)) + geom_line() + theme_bw() + ggtitle("Total patents over time in EU15")
+
+pat %>% 
+  filter(LOCATION %in% EU_15) %>% 
+  filter(`Reference Date` %in% c("Priority date")) %>%
+  filter(`Patents Office & Patents Families` %in% c("Patent applications to the EPO")) %>% 
+  filter(`Technology domains & IPC` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  ggplot(aes(x = Time, y = Value, colour = LOCATION)) + geom_line() + theme_bw() + ggtitle("Y02E patents over time in EU15")
+
+pat %>% 
+  filter(LOCATION %in% top_3) %>% 
+  filter(`Reference Date` %in% c("Priority date")) %>%
+  filter(`Patents Office & Patents Families` %in% c("Patent applications to the EPO")) %>% 
+  filter(IPC %in% c("TOTAL")) %>% 
+  ggplot(aes(x = Time, y = Value, colour = LOCATION)) + geom_line() + theme_bw() + ggtitle("Total patents over time in top 3 innovators")
+
+pat %>% 
+  filter(LOCATION %in% top_3) %>% 
+  filter(`Reference Date` %in% c("Priority date")) %>%
+  filter(`Patents Office & Patents Families` %in% c("Patent applications to the EPO")) %>% 
+  filter(`Technology domains & IPC` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  ggplot(aes(x = Time, y = Value, colour = LOCATION)) + geom_line() + theme_bw() + ggtitle("Y02E patents over time in top 3 innovators")
+
+```
+## Technology development
+
+from https://stats.oecd.org/Index.aspx?DataSetCode=PAT_DEV#
+
+data selected:
+- technology: CLIMATE CHANGE MITIGATION technologies related to ENERGY GENERATION, TRANSMISSION OR DISTRIBUTION (IPC class Y02E) --> possible to select specific tech for ex. wind energy, solar energy, etc
+- family size: 1, 2, 3, 4 and greater --> 4 and greater are more important patents
+- type of variable: number of patent with country fractional value
+- country sample: OECD + BRIICS
+- year span: 1960-2019
+
+```{r}
+pat_dev <- read_csv("D:\\Aggregated\\PAT_DEV_02022023120219870.csv")
+
+
+pat_dev %>% 
+  filter(COU %in% EU_15) %>% # example with EU 15
+  filter(`Family size` %in% c("Four and greater")) %>% 
+  ggplot(aes(x = Year, y = Value, colour = COU)) + geom_line() + theme_bw() + 
+  ggtitle("Y02E patents for EU 15 - family size: 4 and greater")
+
+pat_dev %>% 
+  filter(COU %in% top_3) %>% # example with top 3 innovators
+  filter(`Family size` %in% c("Four and greater")) %>% 
+  ggplot(aes(x = Year, y = Value, colour = COU)) + geom_line() + theme_bw() + ggtitle("Y02E patents for the top 3 innovators - family size: 4 and greater")
+
+
+```
+
+## Citation and Quality data from OECD STI Microdata Lab
+
+- from https://www.oecd.org/sti/intellectual-property-statistics-and-analysis.html
+- only opening EPO data as an example but there's more
+
+```{r}
+##qual <- read.csv("D:\\OECD_PATENT_QUALITY_EPO_INDIC_3.csv", sep = "|") # best option: tried fwf, _csv, #tried opening without python prepro
+#
+#q_sample <- qual[1:3000,]
+#
+#q_sample %>% names()
+#
+##cit_counts <- read.csv("D:\\EPO_CIT_COUNTS.csv", sep = "|")  # index still remains :(
+#
+#c_sample <- cit_counts[1:3000,]
+#
+#c_sample %>% names()
+
+```
+## Renewable energies
+
+```{r}
+ren <- read_csv("D:\\PAT_DEV_RE.csv")
+
+tech <- c("Wind energy", "Solar thermal energy" , "Solar photovoltaic (PV) energy", "Solar thermal-PV hybrids", "Geothermal energy", "Marine energy, e.g. using wave energy or salinity gradient", "Hydro energy"  )
+
+ren %>% 
+  filter(COU %in% c("DEU")) %>% # example with top 3 innovators
+  filter(`Family size` %in% c("Four and greater")) %>% 
+  filter(`Technology domain` %in% tech) %>% 
+  ggplot(aes(x = Year, y = Value, colour = `Technology domain`)) + geom_line() + theme_bw() + ggtitle("Y02E10 patents for Germany - family size: 4 and greater")
+
+
+ren %>% 
+  filter(COU %in% EU_15) %>% # example with top 3 innovators
+  filter(`Family size` %in% c("Four and greater")) %>% 
+  filter(`Technology domain` %in% c("Renewable energy generation")) %>% 
+  ggplot(aes(x = Year, y = Value, colour = COU)) + geom_line() + theme_bw() + ggtitle("Y02E10 patents for EU10 - family size: 4 and greater")
+
+ren %>% 
+  filter(COU %in% top_3) %>% # example with top 3 innovators
+  filter(`Family size` %in% c("Four and greater")) %>% 
+  filter(`Technology domain` %in% c("Renewable energy generation")) %>% 
+  ggplot(aes(x = Year, y = Value, colour = COU)) + geom_line() + theme_bw() + ggtitle("Y02E10 patents for EU10 - family size: 4 and greater")
+
+```
+
+
+```{r}
+
+reg_oecd <- read_csv("D:\\Aggregated\\PATS_REGION_05022023190614585.csv")
+
+reg_oecd %>%  # computing average of patent count by region
+    filter(`Total patents and by technologies` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  group_by(Regions) %>% 
+  summarise(avg = mean(Value)) %>% 
+  arrange(desc(avg))
+
+top_3 = c("San Jose-San Francisco-Oakland - CA", "Boston-Worcester-Manchester - MA-NH", "New York-Newark-Bridgeport - NY-NJ-CT-PA")
+
+top_10 <- c("San Jose-San Francisco-Oakland - CA", "Boston-Worcester-Manchester - MA-NH", "New York-Newark-Bridgeport - NY-NJ-CT-PA", "Los Angeles-Long Beach-Riverside - CA", "Philadelphia-Camden-Vineland - PA-NJ-DE-MD", "Detroit-Warren-Flint - MI", "Albany-Schenectady-Amsterdam - NY","Hartford-West Hartford-Willimantic - CT", "Minneapolis-St. Paul-St. Cloud - MN-WI","Houston-Baytown-Huntsville - TX")
+
+last_10 <- c("Pendleton-Hermiston - OR", "San Angelo - TX", "Bismarck - ND", "Redding - CA", "Monroe-Bastrop - LA", "Kearney - NE", "Aberdeen - SD", "Cape Girardeau-Jackson - MO-IL", "Paducah - KY-IL", "Minot - ND")
+
+fig_top_10 <- reg_oecd %>% 
+  #filter(`Patent office` %in% c("Patent applications to the EPO")) %>% 
+  filter(`Reference region` %in% c("Inventor(s)'s country(ies) of residence")) %>% 
+  filter(`Total patents and by technologies` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  filter(Regions %in% top_10) %>% 
+  #group_by(Regions) %>% 
+  ggplot(aes(x = Time, y = Value, colour = `Patent office`)) + geom_line(linewidth = 1) + theme_bw() + ggtitle("Y02E EPO vs PCT counts in top 10 patent-intensive US regions") + scale_x_discrete(limits = c(1998, 2000, 2002, 2004, 2006, 2008, 2010, 2012)) + facet_wrap(~Regions, scale="free_y") + theme(legend.position = "top")
+
+fig_top_10
+
+fig_top <- reg_oecd %>% 
+  filter(`Patent office` %in% c("Patent applications to the EPO")) %>% 
+  filter(`Reference region` %in% c("Inventor(s)'s country(ies) of residence")) %>% 
+  filter(`Total patents and by technologies` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  filter(Regions %in% top_3) %>% 
+  #group_by(Regions) %>% 
+  ggplot(aes(x = Time, y = Value, colour = Regions)) + geom_line(linewidth = 1) + theme_bw() + ggtitle("Y02E EPO patents over time in top 3 patent-intensive regions") + scale_x_discrete(limits = c(1998, 2000, 2002, 2004, 2006, 2008, 2010, 2012))
+
+
+fig_last_10 <- reg_oecd %>% 
+  #filter(`Patent office` %in% c("Patent applications to the EPO")) %>% 
+  filter(`Reference region` %in% c("Inventor(s)'s country(ies) of residence")) %>% 
+  filter(`Total patents and by technologies` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  filter(Regions %in% last_10) %>% 
+  #group_by(Regions) %>% 
+  ggplot(aes(x = Time, y = Value, colour = `Patent office`)) + geom_line(linewidth = 1) + theme_bw() + ggtitle("Y02E EPO vs PCT counts in last 10 patent-intensive US regions") + scale_x_discrete(limits = c(1998, 2000, 2002, 2004, 2006, 2008, 2010, 2012)) + facet_wrap(~Regions, scale="free_y") + theme(legend.position = "top")
+
+
+fig <- reg_oecd %>% 
+  #filter(`Patent office` %in% c("Patent applications to the EPO")) %>% 
+  filter(`Reference region` %in% c("Inventor(s)'s country(ies) of residence")) %>% 
+  filter(`Total patents and by technologies` %in% c("Climate change mitigation technologies related to energy generation, transmission or distribution")) %>% 
+  filter(Regions %in% c("United States")) %>% 
+  #group_by(Regions) %>% 
+  ggplot(aes(x = Time, y = Value, colour =`Patent office`)) + geom_line(linewidth = 1) + theme_bw() + ggtitle("Y02E patents over time in the US") + labs(subtitle = "By Patent Office") + scale_x_discrete(limits = c(1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013))
+
+fig 
+
+fig_last_10
+```
+
+```{r}
+nas <- which((reg_oecd$Value == "0"))
+
+(table(reg_oecd$Regions[nas])) # Lewiston - ID-WA
+
+table(reg_oecd$Time[nas])
+
+
+
+```
+
+
+
+```{r}
+ggsave("Y02E_patents_byPO.png", plot = fig, device = "png", width = 10, height = 8)
+
+ggsave("Y02E_patents_top.png", plot = fig_top, device = "png", width = 10, height = 8)
+
+ggsave("Y02E_patents_last_10.png", plot = fig_last_10, device = "png", width = 10, height = 8)
+
+ggsave("Y02E_patents_top10.png", plot = fig_top_10, device = "png", width = 12, height = 10)
+
+
+```
+

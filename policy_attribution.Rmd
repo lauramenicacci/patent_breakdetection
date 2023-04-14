@@ -1,0 +1,168 @@
+---
+title: "policy_attribution"
+author: "Laura Menicacci"
+date: "2023-04-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+
+policy <- read_csv("D:\\policy_database\\program_new.csv") %>% 
+  select(!c(administrator, fromSir, additional_technologies))
+
+state_info <- read_csv("D:\\policy_database\\state.csv")  %>% 
+  select(!c(is_territory))
+
+authority <- read_csv("D:\\policy_database\\authority.csv") %>% 
+  select(!c(order,code, file_key, file_name, id, website, expired, expiredtext)) %>% 
+  filter(if_any(c(effective, effectivetext), complete.cases)) %>% 
+  distinct()
+
+type <- read_csv("D:\\policy_database\\program_type.csv")
+
+policy1 <- left_join(policy, type, by = c("program_type_id" = "id")) %>% 
+  rename("policy_type" = "name.y", 
+         "name" = "name.x") %>% 
+  select(!c(program_category_id.y))
+
+policy2 <- left_join(policy1, state_info, by = c("state_id" = "id")) %>% # join policy data + state data
+  rename("state_name" = "name.y", 
+         "state_code" = "abbreviation", 
+         "policy_id" = "id", 
+         "policy_name" = "name.x", 
+         "program_category" = "program_category_id.x") %>% 
+  select(policy_id, state_name, state_code, policy_name, summary, policy_type, program_category, published, websiteurl, start_date, start_date_text)
+  
+policy2$start_year <- policy2 %>% 
+  pull(start_date) %>% 
+  year()
+
+policy2 <- policy2 %>% 
+  select(!c(start_date))
+
+policy2$program_category <- ifelse(policy2$program_category == 1, "Financial Incentive", "Regulatory Policy")
+
+write_csv(policy2, ".\\policy_dataset1.csv")
+
+```
+
+```{r}
+# create unique var for years by filling NAs with information from other columns and other datasets
+for (i in nrow(policy3))
+```
+
+# Data description
+
+```{r}
+table(is.na(policy$created_ts))
+
+table(is.na(policy$start_date))
+
+
+
+
+```
+
+# Break attribution
+
+```{r}
+
+breaks <- c("Connecticut", "Delaware", "District of Columbia", "Nevada", "Oregon", "Rhode Island", "South Carolina")
+
+# connecticut 2009 
+filt <- policy2 %>% 
+  filter(state_name %in% breaks)
+
+write_csv(filt, ".\\filtered_policies_by_breakstate.csv")
+
+```
+# New Mexico?
+
+```{r}
+
+breaks <- c("New Mexico")
+
+newme <- policy2 %>% 
+  filter(state_name %in% breaks)
+
+write_csv(newme, ".\\newmex.csv")
+
+
+```
+
+
+
+#Description of the dataset
+
+```{r}
+#n policy per state
+
+table(policy2$state_name)
+
+npol_state = as.data.frame(table(policy2$state_name))
+
+
+npol_state %>%
+  arrange(Freq) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
+  mutate(name = fct_reorder(Var1, Freq)) %>%   
+  ggplot(aes( x=name,y=Freq))+
+    geom_segment( aes(xend=Var1, yend=0)) +
+    geom_point( size=1.7, color="orange") +
+    coord_flip() +
+    theme_bw() +
+    theme(axis.text.y = element_text( hjust = 1, size=5,color="Black"))+
+    xlab("")+ ylab("Number of Policies") + ggtitle("NUMBER OF POLICIES PER STATE")
+
+```
+
+```{r}
+#POLICY TYPE
+df_policy_type = as.data.frame(table(policy2$policy_type))
+ 
+ 
+ df_policy_type %>%
+  mutate(name = fct_reorder(Var1, Freq)) %>%
+  ggplot( aes( x=name,y=Freq)) +
+    geom_bar(stat="identity", fill="#076fa2",  width=.8) +
+    coord_flip() +
+    xlab("") + ylab('Number of Policies')+
+    theme_bw() + theme(axis.text.y = element_text( hjust = 1, size=6,color="Black")) + ggtitle("POLICIES TYPE")
+```
+
+```{r}
+df_policy_cat = as.data.frame(table(policy2$program_category))
+ 
+ 
+ ggplot(df_policy_cat, aes(x=Var1, y=Freq)) + 
+  geom_bar(stat = "identity", color = 'darkblue', fill = 'lightblue') +
+   xlab('Program Category') + ylab('Number of Policies') + theme_bw()
+```
+
+```{r}
+financial_df = as.data.frame(table(policy2[policy2$program_category == 'Financial Incentive', ]$policy_type))
+
+library(treemapify)
+
+
+ ggplot(financial_df, aes(area = Freq, fill = Freq, label = Var1)) +
+  geom_treemap() +
+  geom_treemap_text(colour = "white",
+                    place = "centre",
+                    size = 15) +  ggtitle("FINANCIAL INCENTIVE POLICIES TYPES")
+```
+
+
+```{r}
+regulatory_df = as.data.frame(table(policy2[policy2$program_category == 'Regulatory Policy', ]$policy_type))
+
+ggplot(regulatory_df, aes(area = Freq, fill = Freq, label = Var1)) +
+  geom_treemap() +
+  geom_treemap_text(colour = "white",
+                    place = "centre",
+                    size = 15) +  ggtitle("REGULATORY POLICIES TYPES")
+
+ 
+```

@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/1024316/b780a5a0b367438b84717ba8fa715556
+bundleId: https://api.rpubs.com/api/v1/document/1024316/b780a5a0b367438b84717ba8fa715556
+url: http://rpubs.com/lauramenicacci/1024316
+when: 1681388250.02122
+lastSyncTime: 1681388250.02123

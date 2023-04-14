@@ -1,0 +1,64 @@
+﻿CPC_Class,Name
+Y02E,"REDUCTION OF GREENHOUSE GAS [GHG] EMISSIONS, RELATED TO ENERGY GENERATION, TRANSMISSION OR DISTRIBUTION"
+Y02E 10/00,Energy generation through renewable energy sources
+Y02E 10/10,Geothermal energy
+Y02E 10/20,Hydro energy
+Y02E 10/30,"Energy from the sea, e.g. using wave energy or salinity gradient"
+Y02E 10/40,"Solar thermal energy, e.g. solar towers"
+Y02E 10/44,Heat exchange systems
+Y02E 10/46,"Conversion of thermal power into mechanical power, e.g. Rankine, Stirling or solar thermal engines"
+Y02E 10/47,Mountings or tracking
+Y02E 10/50,Photovoltaic [PV] energy
+Y02E 10/52,PV systems with concentrators
+Y02E 10/541,CuInSe2 material PV cells
+Y02E 10/542,Dye sensitized solar cells
+Y02E 10/543,Solar cells from Group II-VI materials
+Y02E 10/544,Solar cells from Group III-V materials
+Y02E 10/545,Microcrystalline silicon PV cells
+Y02E 10/546,Polycrystalline silicon PV cells
+Y02E 10/547,Monocrystalline silicon PV cells
+Y02E 10/548,Amorphous silicon PV cells
+Y02E 10/549,Organic PV cells
+Y02E 10/56,"Power conversion systems, e.g. maximum power point trackers"
+Y02E 10/60,Thermal-PV hybrids
+Y02E 10/70,Wind energy
+Y02E 10/72,Wind turbines with rotation axis in wind direction
+Y02E 10/727,Offshore wind turbines
+Y02E 10/728,Onshore wind turbines
+Y02E 10/74,Wind turbines with rotation axis perpendicular to the wind direction
+Y02E 10/76,Power conversion electric or electronic aspects
+Y02E 20/00,Combustion technologies with mitigation potential
+Y02E 20/12,Heat utilisation in combustion or incineration of waste
+Y02E 20/14,Combined heat and power generation [CHP]
+Y02E 20/16,"Combined cycle power plant [CCPP], or combined cycle gas turbine [CCGT]"
+Y02E 20/18,"Integrated gasification combined cycle [IGCC], e.g. combined with carbon capture and storage [CCS]"
+Y02E 20/30,Technologies for a more efficient combustion or heat usage
+Y02E 20/32,Direct CO2 mitigation
+Y02E 20/34,"Indirect CO2mitigation, i.e. by acting on non CO2directly related matters of the process, e.g. pre-heating or heat recovery"
+Y02E 30/00,Energy generation of nuclear origin
+Y02E 30/10,Nuclear fusion reactors
+Y02E 30/30,Nuclear fission reactors
+Y02E 40/00,"Technologies for an efficient electrical power generation, transmission or distribution"
+Y02E 40/10,Flexible AC transmission systems [FACTS]
+Y02E 40/20,Active power filtering [APF]
+Y02E 40/30,Reactive power compensation
+Y02E 40/40,Arrangements for reducing harmonics
+Y02E 40/50,Arrangements for eliminating or reducing asymmetry in polyphase networks
+Y02E 40/60,Superconducting electric elements or equipment; Power systems integrating superconducting elements or equipment
+Y02E 40/70,Smart grids as climate change mitigation technology in the energy generation sector
+Y02E 50/00,Technologies for the production of fuel of non-fossil origin
+Y02E 50/10,"Biofuels, e.g. bio-diesel"
+Y02E 50/30,"Fuel from waste, e.g. synthetic alcohol or diesel"
+Y02E 60/00,Enabling technologies; Technologies with a potential or indirect contribution to GHG emissions mitigation
+Y02E 60/10,Energy storage using batteries
+Y02E 60/13,Energy storage using capacitors
+Y02E 60/14,Thermal energy storage
+Y02E 60/16,"Mechanical energy storage, e.g. flywheels or pressurised fluids"
+Y02E 60/30,Hydrogen technology
+Y02E 60/32,Hydrogen storage
+Y02E 60/34,Hydrogen distribution
+Y02E 60/36,"Hydrogen production from non-carbon containing sources, e.g. by water electrolysis"
+Y02E 60/50,Fuel cells
+Y02E 60/60,Arrangements for transfer of electric power between AC networks or generators via a high voltage DC link [HVCD]
+Y02E 70/00,Other energy conversion or management systems reducing GHG emissions
+Y02E 70/30,Systems combining energy storage with energy generation of non-fossil origin

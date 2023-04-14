@@ -6,3 +6,5 @@
 *.png
 *.rdb
 *.png
+.RData
+.Rhistory

@@ -66,7 +66,7 @@ samples <- mget(c("us_all", "us_q20", "us_q25", "us_q30"))
 
 controls <- c(" ~ lgdp + lpop + lgdp_sq ") 
 
-dep_var <- c("log_patent_count", "ihs_patent_count") # ihs selected as robustness check
+dep_var <- c("log_patent_count") # ihs selected as robustness check
 
 base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
 
@@ -159,11 +159,11 @@ cl <- makeCluster(6)
 registerDoParallel(cl)
 
 models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
-  foreach(smpl = c("us_all", "us_q20","us_q25", "us_q30"), .combine = rbind) %:%
+  foreach(smpl = c("us_q30"), .combine = rbind) %:%
   foreach(a = c(0,1), .combine = rbind) %:%
   #foreach(b = c(10, 20, 30), .combine = rbind) %:%
   foreach(p.value = c(0.01, 0.05), .combine = rbind, .errorhandling = "remove") %dopar% {
-    dat <- df2 %>% filter(state_name %in% samples[[smpl]])
+    dat <- df2 %>% filter(state_name %in% samples[[smpl]]) %>% filter(prio_year <= 2019)
       is <- isatpanel(
             data = dat,
             formula = as.formula(f),
@@ -187,7 +187,7 @@ models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', '
 
 stopCluster(cl)
 
-saveRDS(models, ".\\results\\models_nonpat_noIIS.RDS")
+saveRDS(models, ".\\results\\model_final_noiis.RDS")
 ```
 
 

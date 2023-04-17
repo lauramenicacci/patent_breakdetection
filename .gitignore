@@ -8,3 +8,5 @@
 *.png
 .RData
 .Rhistory
+final_decision_cache/html/__packages
+*.RData

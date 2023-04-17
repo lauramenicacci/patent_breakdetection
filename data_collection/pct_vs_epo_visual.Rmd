@@ -62,7 +62,8 @@ In the EPO procedure the date should be recorded when the patent is filed, and i
 ```{r, fig.height=10, fig.width=10, echo=FALSE}
 
 library(tidyverse)
-pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv")
+library(gridExtra)
+pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv", show_col_types = FALSE)
 
 
 pct_pat <- pct_patent_counts %>% 
@@ -233,5 +234,80 @@ pat_plot2 %>%
   ggtitle("")
 
 
+```
+# Scatterplot
+
+```{r, fig.height=7, fig.width=7}
+counts <- read_csv("C:/Users/laura/OneDrive/Documenti/LAURA/HERTIE 22-23/THESIS/patent_breakdetection/model_spec/df.csv", show_col_types = FALSE) %>% group_by(state_name) %>% summarise(tot_count_per_state = sum(patent_count))
+
+
+pol <- read_csv("C:/Users/laura/OneDrive/Documenti/LAURA/HERTIE 22-23/THESIS/patent_breakdetection/policy_dataset1.csv", show_col_types = FALSE) %>% select(state_name, policy_name, policy_type) %>% group_by(state_name) %>% count
+
+p_c <- left_join(counts, pol, by = c("state_name"))
+
+breaks <- c("Connecticut", "Delaware", "District of Columbia", "Nevada", "Oregon", "Rhode Island", "South Carolina")
+
+p1 <- p_c %>% 
+  ggplot(aes(x = tot_count_per_state, y = n, color = state_name))+
+  geom_point(size=2) +
+  theme_bw()+
+  ggtitle("All states") +
+  ylab("number of policies") + xlab("patent counts") +
+  theme(legend.position = "none")
+
+p3 <- p_c %>% 
+  filter(!state_name == "California") %>% 
+  ggplot(aes(x = tot_count_per_state, y = n, color = state_name))+
+  geom_point(size=2) +
+  theme_bw()+
+  ggtitle("All states - no California") +
+  ylab("number of policies") + xlab("patent counts") +
+  theme(legend.position = "none")
+
+p2 <- p_c %>% 
+  filter(state_name %in% breaks) %>% 
+  ggplot(aes(x = tot_count_per_state, y = n, color = state_name))+
+  geom_point(size=2) +
+  theme_bw()+
+  ggtitle("break States") +
+  ylab("number of policies") + xlab("patent counts") +
+  theme(legend.position = "right")
+
+scat <- grid.arrange(p1, p3, p2, ncol=1, nrow=3, widths = c(10), heights = c(6, 6, 6),respect = FALSE, top = "Patent count against number of policies")
+
+```
+
+# Scatterplot with states
+```{r, fig.height=7, fig.width=7}
+leg <- c("Patent count", "Number of policies")
+
+s1 <- p_c %>% 
+  filter(!state_name == "California") %>% 
+  arrange(desc(tot_count_per_state)) %>% 
+  ggplot() + 
+  geom_point(aes(reorder(state_name, tot_count_per_state), tot_count_per_state), color = "steelblue") + 
+  geom_point(aes(state_name, n), color='coral2') + 
+  coord_flip() + 
+  theme_bw() + 
+  theme(axis.text.y = element_text( hjust = 1, size=6,color="Black")) +
+  ggtitle("All states except California") +
+  ylab("") + xlab("")
+
+
+s2 <- p_c %>% 
+  filter(state_name %in% breaks) %>% 
+  arrange(desc(tot_count_per_state)) %>% 
+  ggplot() + 
+  geom_point(aes(reorder(state_name, tot_count_per_state), tot_count_per_state), color = "steelblue") + 
+  geom_point(aes(state_name, n), color='coral2') + 
+  coord_flip() + 
+  scale_colour_manual(name="x", labels = c("Number of patents", "Number of policies"), aesthetics = c("colour")) +
+  theme_bw() + 
+  theme(axis.text.y = element_text( hjust = 1, size=6,color="Black")) +
+  ggtitle("break States") +
+  ylab("") + xlab("")
+
+
+scat2 <- grid.arrange(s1, s2, ncol=1, nrow=2, widths = c(5), heights = c(8, 6),respect = FALSE, top = "Policies vs patent counts per state - arranged by patent count")
 ```
 

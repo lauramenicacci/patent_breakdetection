@@ -5,12 +5,19 @@ date: "2023-03-16"
 output: html_document
 ---
 
+# Libraries, global theme, data
 ```{r setup, include=FALSE}
+
 library(tidyverse)
+library(ggthemes)
 library(gridExtra)
 library(packHV)
 
-df <- read_csv(".\\model_spec\\df.csv")
+# load patent data 
+
+# complete dataset
+df <- read_csv(".\\model_spec\\df.csv", show_col_types = FALSE)  # patent counts
+
 ```
 
 # Descriptive plots
@@ -194,4 +201,24 @@ stats_pat %>%
 ```
 
 
+## US STATES MAP
 
+```{r us_map, fig.height=3, fig.width=3}
+library(usmap)
+library(viridis)
+
+df1<- df %>% select(state_name, patent_count) %>% group_by(state_name) %>% summarise(total_count = sum(patent_count)) %>% 
+  rename("state"="state_name")
+
+map1 <- plot_usmap(data = df1, values = "total_count") + 
+  scale_fill_viridis(option = "plasma") + 
+  theme(legend.position = "right", 
+        legend.title = element_blank())
+
+#ggsave(".\\figures\\map_patent_counts.png", plot = map1, device = "png", width = 8, height = 8)
+
+
+```
+
+
+# 

@@ -59,10 +59,14 @@ In the EPO procedure the date should be recorded when the patent is filed, and i
 
 # Here an overview of the time series of the two offices, plus the merged direct EPO + PCT one
 ## PCT
-```{r, fig.height=10, fig.width=10, echo=FALSE}
 
+```{r, echo=FALSE}
 library(tidyverse)
 library(gridExtra)
+```
+
+
+```{r, fig.height=10, fig.width=10, echo=FALSE}
 pct_patent_counts <- read_csv("D:/pct_patent_counts_1.csv", show_col_types = FALSE)
 
 
@@ -157,7 +161,7 @@ pat_all_series <- pat_all %>%
   facet_wrap(~region) + 
   theme_minimal() + 
   labs(x = "Priority year", y = "Patent count") +
-  ggtitle("Total patent counts by US State (Y02E class)", subtitle = "PCT and direct EPO aggregation")
+  ggtitle("Total patent counts by US State (Y02E class)")
 
 pat_all_series
 
@@ -205,8 +209,8 @@ pat_plot2 %>%
 
 
 
-```{r}
-breaks <- c("Connecticut", "Delaware", "District of Columbia", "Nevada", "Oregon", "Rhode Island", "South Carolina")
+```{r, fig.height=7, fig.width=10}
+breaks <- c("South Carolina")
 
 pat_plot <- pat %>%
   filter(prio_year >= 2000 & prio_year <= 2019) %>% 
@@ -223,18 +227,205 @@ pat_plot2 %>%
   group_by(Up_reg_label) %>% 
   count(Name) %>% 
   arrange(desc(n)) %>% 
-  head(20) %>% 
-  ggplot(aes(x = Name, y = n)) +
+  head(10) %>% 
+  ggplot(aes(x = reorder(Name,n), y = n)) +
   geom_col(fill = "076fa2") + 
   coord_flip() +
   ylab("") + xlab("") +
-  facet_wrap(~Up_reg_label) +
+  facet_wrap(~Up_reg_label, scales = "free_x") +
   theme_bw() +
   #theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
   ggtitle("")
 
 
 ```
+```{r, fig.height=7, fig.width=10}
+
+library(ggsci)
+
+breaks <- c("South Carolina")
+
+techs <- c("Wind turbines with rotation axis in wind direction", "Energy storage using batteries","Combined cycle power plant [CCPP], or combined cycle gas turbine [CCGT]", "Nuclear fusion reactors", "Onshore wind turbines")
+
+pat_plot <- pat %>%
+  filter(prio_year >= 2000 & prio_year <= 2019) %>% 
+  filter(Up_reg_label %in% breaks) %>% 
+  select(appln_id, CPC_Class, prio_year, Up_reg_label) %>% 
+  distinct(.keep_all = TRUE)
+
+pat_plot$CPC_Class <- pat_plot %>%  pull(CPC_Class) %>%   gsub("  ", " ", .)
+
+pat_plot2 <- left_join(pat_plot, cpc_names, by = c("CPC_Class"))
+
+pat_plot2 %>% 
+  filter(Name %in% techs) %>% 
+  ggplot(aes(x = prio_year, fill = Name)) +
+  geom_bar() + 
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(legend.position = "right") +
+  ggtitle("South Carolina - patents by top 5 technology") +
+  scale_fill_simpsons(palette = c("springfield"))
+
+```
+# Wisconsin
+
+```{r}
+breaks <- c("Wisconsin")
+
+techs <- c("Biofuels, e.g. bio-diesel", "Energy storage using batteries","Fuel cells", "Fuel from waste, e.g. synthetic alcohol or diesel", "Power conversion systems, e.g. maximum power point trackers")
+
+pat_plot <- pat %>%
+  filter(prio_year >= 2000 & prio_year <= 2019) %>% 
+  filter(Up_reg_label %in% breaks) %>% 
+  select(appln_id, CPC_Class, prio_year, Up_reg_label) %>% 
+  distinct(.keep_all = TRUE)
+
+pat_plot$CPC_Class <- pat_plot %>%  pull(CPC_Class) %>%   gsub("  ", " ", .)
+
+pat_plot2 <- left_join(pat_plot, cpc_names, by = c("CPC_Class"))
+
+pat_plot2 %>% 
+  drop_na() %>% 
+  group_by(Up_reg_label) %>% 
+  count(Name) %>% 
+  arrange(desc(n)) %>% 
+  head(10) %>% 
+  ggplot(aes(x = reorder(Name,n), y = n)) +
+  geom_col(fill = "076fa2") + 
+  coord_flip() +
+  ylab("") + xlab("") +
+  facet_wrap(~Up_reg_label, scales = "free_x") +
+  theme_bw() +
+  #theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
+  ggtitle("")
+
+
+pat_plot2 %>% 
+  filter(Name %in% techs) %>% 
+  ggplot(aes(x = prio_year, fill = Name)) +
+  geom_bar() + 
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(legend.position = "right") +
+  ggtitle("Wisconsin - patents by top 5 technology") +
+  scale_fill_simpsons(palette = c("springfield"))
+```
+# Virginia
+
+```{r, fig.height=7, fig.width=7}
+breaks <- c("Virginia")
+
+techs <- c("Nuclear fission reactors", "Energy storage using batteries", "Fuel cells")
+
+pat_plot <- pat %>%
+  filter(prio_year >= 2000 & prio_year <= 2019) %>% 
+  filter(Up_reg_label %in% breaks) %>% 
+  select(appln_id, CPC_Class, prio_year, Up_reg_label) %>% 
+  distinct(.keep_all = TRUE)
+
+pat_plot$CPC_Class <- pat_plot %>%  pull(CPC_Class) %>%   gsub("  ", " ", .)
+
+pat_plot2 <- left_join(pat_plot, cpc_names, by = c("CPC_Class"))
+
+pat_plot2 %>% 
+  drop_na() %>% 
+  group_by(Up_reg_label) %>% 
+  count(Name) %>% 
+  arrange(desc(n)) %>% 
+  head(10) %>% 
+  ggplot(aes(x = reorder(Name,n), y = n)) +
+  geom_col(fill = "076fa2") + 
+  coord_flip() +
+  ylab("") + xlab("") +
+  facet_wrap(~Up_reg_label, scales = "free_x") +
+  theme_bw() +
+  #theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
+  ggtitle("")
+
+
+pat_plot2 %>% 
+  #filter(Name %in% techs) %>% 
+  ggplot(aes(x = prio_year, fill = Name)) +
+  geom_bar() + 
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  ggtitle("Virginia") #+
+  scale_fill_simpsons(palette = c("springfield"))
+
+
+#data_change <- data_change %>% 
+#  filter(year %in% c(2010,2019)) %>% 
+#  group_by(ISO,country) %>% 
+#  mutate(change_abs = last(GHG)-first(GHG),               ## absolute change, or the difference in emissions between t2 and t1
+#         change_rel = change_abs/first(GHG),              ## relative change, or the ratio of absolute change to emissions in t1
+#         change_avg_annual = ((last(GHG)/first(GHG))^(1/(2019-2010))-1)) ## average annual change using the CGAR formula
+```
+# Kentucky
+
+```{r}
+breaks <- c("Kentucky")
+
+techs <- c("Biofuels, e.g. bio-diesel", "Energy storage using batteries","Fuel cells", "Photovoltaic [PV] energy", "Energy storage using capacitors")
+
+pat_plot <- pat %>%
+  filter(prio_year >= 2000 & prio_year <= 2019) %>% 
+  filter(Up_reg_label %in% breaks) %>% 
+  select(appln_id, CPC_Class, prio_year, Up_reg_label) %>% 
+  distinct(.keep_all = TRUE)
+
+pat_plot$CPC_Class <- pat_plot %>%  pull(CPC_Class) %>%   gsub("  ", " ", .)
+
+pat_plot2 <- left_join(pat_plot, cpc_names, by = c("CPC_Class"))
+
+pat_plot2 %>% 
+  drop_na() %>% 
+  group_by(Up_reg_label) %>% 
+  count(Name) %>% 
+  arrange(desc(n)) %>% 
+  head(10) %>% 
+  ggplot(aes(x = reorder(Name,n), y = n)) +
+  geom_col(fill = "076fa2") + 
+  coord_flip() +
+  ylab("") + xlab("") +
+  facet_wrap(~Up_reg_label, scales = "free_x") +
+  theme_bw() +
+  #theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
+  ggtitle("")
+
+
+pat_plot2 %>% 
+  #filter(Name %in% techs) %>% 
+  ggplot(aes(x = prio_year, fill = Name)) +
+  geom_bar() + 
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  ggtitle("Kentucky") +
+  coord_flip()
+  scale_fill_simpsons(palette = c("springfield"))
+  
+pat_plot2 %>% 
+  filter(Name %in% techs) %>% 
+  ggplot(aes(x = prio_year, fill = Name)) +
+  geom_bar() + 
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(legend.position = "right") +
+  ggtitle("Kentucky") +
+  coord_flip()
+
+
+#data_change <- data_change %>% 
+#  filter(year %in% c(2010,2019)) %>% 
+#  group_by(ISO,country) %>% 
+#  mutate(change_abs = last(GHG)-first(GHG),               ## absolute change, or the difference in emissions between t2 and t1
+#         change_rel = change_abs/first(GHG),              ## relative change, or the ratio of absolute change to emissions in t1
+#         change_avg_annual = ((last(GHG)/first(GHG))^(1/(2019-2010))-1)) ## average annual change using the CGAR formula
+```
+
+
 # Scatterplot
 
 ```{r, fig.height=7, fig.width=7}
@@ -275,6 +466,8 @@ p2 <- p_c %>%
 
 scat <- grid.arrange(p1, p3, p2, ncol=1, nrow=3, widths = c(10), heights = c(6, 6, 6),respect = FALSE, top = "Patent count against number of policies")
 
+ggsave("Scatt.png", plot = scat, device = "png", width = 10, height = 10)
+
 ```
 
 # Scatterplot with states
@@ -310,4 +503,154 @@ s2 <- p_c %>%
 
 scat2 <- grid.arrange(s1, s2, ncol=1, nrow=2, widths = c(5), heights = c(8, 6),respect = FALSE, top = "Policies vs patent counts per state - arranged by patent count")
 ```
+```{r}
+pat_plot_4 <- pat %>%
+  filter(prio_year >= 2000 & prio_year <= 2019) %>% 
+  select(appln_id, prio_year, CPC_Class, Up_reg_label) %>% 
+  distinct(.keep_all = TRUE)
+
+pat_plot_4$CPC_Class <- pat_plot_4 %>%  pull(CPC_Class) %>%   gsub("  ", " ", .)
+
+pat_plot_42 <- left_join(pat_plot_4, cpc_names, by = c("CPC_Class"))
+
+pat_plot_42 %>% 
+  filter(Up_reg_label == "District of Columbia") %>% 
+  drop_na() %>% 
+  group_by(Up_reg_label) %>% 
+  count(Name) %>% 
+  arrange(desc(n)) %>% 
+  head(20) %>% 
+  ggplot(aes(x = Name, y = n)) +
+  geom_col(fill = "076fa2") + 
+  coord_flip() +
+  ylab("") + xlab("") +
+  facet_wrap(~Up_reg_label) +
+  theme_bw() +
+  #theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
+  ggtitle("")
+```
+# R&D 
+
+```{r}
+
+library(ggthemes)
+rd <- read_csv("D:\\For_model\\pat_gdp_pop_rd.csv", show_col_types = FALSE) %>% 
+  filter(state_name %in% states) %>% 
+  group_by(state_name) %>% 
+  filter(prio_year < 2020)
+
+states <- c("South Carolina", "Wisconsin", "District of Columbia", "Kentucky","Tennessee", "Virginia")
+
+data_vline <-data.frame(state_name = unique(rd$state_name),  # Create data for lines
+                         vline = c(2011, 2007, 2008, 2005, 2005, 2014))
+data_vline    
+
+p <- rd %>% 
+  ggplot(aes(x = prio_year, y = rd, color = state_name)) +
+  geom_line() +
+  facet_wrap(~state_name, scales = "free") +
+  theme_pander()
+
+p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red", alpha = 0.7)
+  
+  
+```
+# renewable energy consumption
+```{r}
+ene <- read_csv("C:\\Users\\laura\\Downloads\\use_all_btu.csv") %>% 
+  filter(MSN %in% c("RETCB")) %>% 
+  filter(State %in% st)
+
+st <- c("DC", "KY", "SC", "TN", "VA", "WI")
+
+ene2 <-  ene[,c(2:3,44:64)]
+
+enel <- ene2 %>% pivot_longer(cols = c("2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011" , "2012","2013","2014","2015","2016","2017","2018","2019","2020"), 
+               names_to = "year", 
+               values_to = c("ren_cons"))
+
+enel$year <- as.numeric(enel$year)
+
+data_vline <-data.frame(State = st,  # Create data for lines
+                         vline = c(2011, 2007, 2008, 2005, 2005, 2014))
+data_vline    
+
+p <- enel %>% 
+  ggplot(aes(x = year, y = ren_cons, color = State)) +
+  geom_line() +
+  facet_wrap(~State) +
+  theme_bw()
+
+p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red", alpha = 0.7)
+
+```
+
+# tot energy price by state
+
+```{r}
+
+library(tidyverse)
+library(readxl)
+
+ene_price <- read_excel("C:\\Users\\laura\\Downloads\\pr_ex_tot.xlsx", sheet = 2, skip = 2)
+
+ene_price <-  ene_price[,c(1,32:52)]
+
+ene <- ene_price %>% pivot_longer(cols = c("2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011" , "2012","2013","2014","2015","2016","2017","2018","2019","2020"), 
+               names_to = "year", 
+               values_to = c("tot_energy_price"))
+
+ene$year <- as.numeric(ene$year)
+ene %>% 
+  filter(!State == "US") %>% 
+  filter(State %in% st) %>% 
+  ggplot(aes(x = year, y = tot_energy_price, color = State))+
+  geom_line()+
+  theme_bw()
+
+```
+# fossil fuel and natural gas consumption
+
+```{r}
+
+library(tidyverse)
+library(readxl)
+
+pet_cons <- read_excel("C:\\Users\\laura\\Downloads\\use_pet_capita.xlsx", sheet = 4, skip = 2)
+
+pet_cons <-  pet_cons[,c(1,42:62)]
+
+pet_cons <- pet_cons %>% pivot_longer(cols = c("2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011" , "2012","2013","2014","2015","2016","2017","2018","2019","2020"),
+               names_to = "year", 
+               values_to = c("pet_cons"))
+
+
+ng_cons <- read_excel("C:\\Users\\laura\\Downloads\\use_ng_capita.xlsx", sheet = 4, skip = 2)
+
+ng_cons <-  ng_cons[,c(1,42:62)]
+
+ng_cons <- ng_cons %>% pivot_longer(cols = c("2000" ,"2001" ,"2002" ,"2003" ,"2004" ,"2005" ,"2006" ,"2007" ,"2008" ,"2009" ,"2010" ,"2011" , "2012","2013","2014","2015","2016","2017","2018","2019","2020"),
+               names_to = "year", 
+               values_to = c("ng_cons"))
+
+pet_ng_cons <- left_join(pet_cons, ng_cons, by = c("year", "State"))
+
+pet_ng_cons$year <- as.numeric(pet_ng_cons$year)
+
+c <- pet_ng_cons %>% 
+  filter(State %in% st) %>% 
+  group_by(State) %>% 
+  ggplot(aes(x = year, y = pet_cons, color = "petroleum")) +
+  geom_line()+
+  geom_line(aes(x = year, y = ng_cons, color = "natural gas")) +
+  facet_wrap(~State, scales = "free_y") + 
+  theme_bw() +
+  ggtitle("Fossil fuel consumption")
+
+c + geom_vline(data = data_vline, aes(xintercept = vline), color = "red", alpha = 0.7)
+
+```
+
+
+
 

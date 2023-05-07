@@ -398,3 +398,17 @@ s2 <- p_c %>%
 
 scat2 <- grid.arrange(s1, s2, ncol=1, nrow=2, widths = c(5), heights = c(8, 6),respect = FALSE, top = "Policies vs patent counts per state arranged by patent count (blue)")
 ```
+
+
+```{r}
+ar1_pval5_bu_iisT <- break_uncertainty(final_models$is[[4]], interval = 0.99)
+
+ar1_pval1_bu_iisT <- break_uncertainty(final_models$is[[3]], interval = 0.99)
+
+
+ar1_pval1_bu_iisT
+
+break_uncertainty(final_models$is[[1]], interval = 0.99)
+
+```
+

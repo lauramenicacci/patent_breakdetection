@@ -120,7 +120,7 @@ cl <- makeCluster(6)
 registerDoParallel(cl)
 
 models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
-  foreach(smpl = c("us_all", "us_q20", "us_q30"), .combine = rbind) %:%
+  foreach(smpl = c("us_q30"), .combine = rbind) %:%
   foreach(a = c(0,1), .combine = rbind) %:%
   #foreach(b = c(10, 20, 30), .combine = rbind) %:%
   foreach(p.value = c(0.01, 0.05), .combine = rbind, .errorhandling = "remove") %dopar% {
@@ -138,7 +138,7 @@ models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', '
             )
           models = tibble(source = f, 
                           state_sample = smpl,      
-                          year_range = paste0(min(df2$prio_year),":",max(df2$prio_year)),
+                          year_range = paste0(min(dat$prio_year),":",max(dat$prio_year)),
                           p_val = p.value, 
                           is = list(is),
                           iis = TRUE,
@@ -148,7 +148,7 @@ models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', '
 
 stopCluster(cl)
 
-saveRDS(models, ".\\results\\models_2019.RDS")
+saveRDS(models, ".\\results\\mods_main_updatedpackage.RDS")
 ```
 
 
@@ -177,7 +177,7 @@ models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', '
             )
           models = tibble(source = f, 
                           state_sample = smpl,      
-                          year_range = paste0(min(df2$prio_year),":",max(df2$prio_year)),
+                          year_range = paste0(min(dat$prio_year),":",max(dat$prio_year)),
                           p_val = p.value, 
                           is = list(is),
                           iis = FALSE,
@@ -187,7 +187,7 @@ models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', '
 
 stopCluster(cl)
 
-saveRDS(models, ".\\results\\model_final_noiis.RDS")
+saveRDS(models, ".\\results\\mods_main_updatedpackage_noIIS.RDS")
 ```
 
 

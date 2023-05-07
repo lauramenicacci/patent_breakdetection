@@ -171,9 +171,9 @@ ggsave("ALL_count_timeseries.png", plot = pat_all_series, device = "png", width 
 
 
 ```{r, fig.height=7, fig.width=10}
-pat <- read_csv("D:\\pct_direct_epo_all_vars.csv")
+pat <- read_csv("D:\\pct_direct_epo_all_vars.csv", show_col_types = FALSE)
 
-cpc_names <- read_csv(".\\cpc_class_names.csv")
+cpc_names <- read_csv(".\\cpc_class_names.csv", show_col_types = FALSE)
   
 cpc_names$CPC_Class <- cpc_names %>% pull(CPC_Class) %>%  gsub("\u00a0", " ", .) # utf8::utf8_print(c, utf8 = FALSE) to check
 
@@ -195,11 +195,12 @@ pat_plot2 %>%
   arrange(desc(n)) %>% 
   head(10) %>% 
   ggplot(aes(reorder(Name, n), n)) +
-  geom_col(fill = "076fa2") + 
+  geom_col() + 
   coord_flip() +
   ylab("") + xlab("") +
   #facet_wrap(~Up_reg_label) +
   theme_bw() +
+  scale_color_viridis(discrete=TRUE)+
   theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
   ggtitle("Top ten Y02E subclass by frequency")
 
@@ -211,6 +212,7 @@ pat_plot2 %>%
 
 ```{r, fig.height=7, fig.width=10}
 breaks <- c("South Carolina")
+library(viridis)
 
 pat_plot <- pat %>%
   filter(prio_year >= 2000 & prio_year <= 2019) %>% 

@@ -1,0 +1,467 @@
+---
+title: "Model selection"
+author: "Laura Menicacci"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 3000)
+```
+
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, max.height = '300px', fig.width = 16, fig.height = 8) #fig.show="hold",,
+
+library(data.table)
+library(tidyverse)
+library(openxlsx)
+library(gets)
+library(getspanel)
+library(here)
+library(doParallel)
+library(gridExtra)
+library(conflicted)
+library(viridis)
+library(kableExtra)
+library(treemapify)
+#library(gplots)
+
+conflict_prefer("filter", "dplyr")
+conflict_prefer("first", "dplyr")
+conflict_prefer("lag", "dplyr")
+
+```
+
+# Data description
+
+## Histogram & boxplot
+```{r, echo=FALSE, fig.height=7,fig.width=7}
+
+df <- read_csv(".\\model_spec\\df.csv", show_col_types = FALSE)
+  
+stats_pat <- df %>% # create df with stats needed: mean, median, max by state
+  select(state_name, patent_count) %>% 
+  group_by(state_name) %>% 
+  summarise(median = median(patent_count, na.rm=TRUE), 
+            mean = mean(patent_count, na.rm=TRUE), 
+            q75 = quantile(patent_count, 0.75), 
+            max = max(patent_count, na.rm=TRUE))
+
+box <- stats_pat %>% 
+  ggplot(aes(x = mean))+ 
+  geom_boxplot(colour = "black") +
+  xlab("")+
+  ylab("") +
+  theme_bw()
+
+hist <- stats_pat %>% 
+  ggplot(aes(x = mean)) +
+  geom_histogram(bins = 51, fill = "navy", colour = "black") +
+  xlab("") +
+  ylab("") +
+  theme_bw()
+
+
+box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "Y02E class patent counts. State mean distribution ", bottom = "State mean patent counts")
+
+
+```
+
+
+## Histogram (2) binwidth = 1
+
+```{r, echo=FALSE, fig.height=3.5,fig.width=7}
+hist2 <- stats_pat %>% 
+  filter(!state_name == "California") %>% 
+  ggplot(aes(x = mean)) +
+  geom_histogram(binwidth = 1, fill = "navy", colour = "black") +
+  xlab("State mean patent counts") +
+  ylab("") +
+  ggtitle("Y02E class patent counts. State mean distribution - without California") +
+  theme_bw()
+  
+hist2
+```
+
+
+```{r, include = FALSE}
+# Plotting functions
+
+f <- function(k) {
+  step <- k
+  function(y) seq(floor(min(y)), ceiling(max(y)), by = step)
+}
+
+# Arranges result plots (plot and plot_grid) and prints model results
+# Option to suppress model results using results = FALSE is required for automatic tabsetting.
+gen_p <- function(df, results = TRUE, auto = FALSE){
+  if(nrow(df) == 0){return("Empty data frame. Model likely not run.")}else{
+    for(i in 1:nrow(df)){
+      mt <- paste0(df$state_sample[i], " (", df$year_range[i],")", "; p.value: ",df$p_val[i],  "; AR: ",df$ar[i])
+      st <- paste0("Formula: ", df$source[i])
+      
+      res <- df %>% slice(i) %>% pull(is) %>% first
+      
+      pl <- res %>% 
+        plot(zero_line = FALSE) +
+        ggtitle(label = mt, subtitle = st) +
+        scale_x_continuous(breaks = f(10))
+      
+      pg <- res %>%
+        plot_grid() +
+        ggtitle(label = mt, subtitle = st)
+      grid.arrange(pl, pg, ncol = 2)
+      
+      if(results == TRUE & auto == FALSE){
+        print(st)
+        print(mt)
+        print(res)
+      }else if(results == TRUE & auto == TRUE){
+        p <- invisible(capture.output(res$isatpanel.result))
+        # Spacing included to trick knitr into reading as verbatim code.
+        cat(c("                         \n", 
+              "                         \n", 
+              paste("                  ", st,'     \n'),
+              paste("                  ", mt,'     \n'),
+              paste("                  ", p,'     \n')))
+      }
+    }
+  }
+}
+```
+
+# Updates {.tabset}
+
+Selected model specifications
+
+ * **Time series: 2000:2019**
+ * **Sample: us_q30** (-15 less patenting states)
+ * **Function: log_patent_count ~ lgdp + lpop + lgdp_sq**
+ * **p-val: 0.01, 0.05**
+ * **AR(0,1)**
+
+# Model results {.tabset} 
+
+## AR(0) {.tabset}
+
+```{r  ar0_2019 , echo = FALSE, results = 'asis', cache = TRUE}
+
+# model data preparation
+results_2019 <- readRDS(here("model_spec/results/models_2019.RDS")) %>% 
+  separate(source, into = c("dep","formula"), sep = "[~]", remove = FALSE) %>%
+  mutate(dep = str_to_title(gsub("_"," ",trimws(dep))),
+         formula = trimws(formula),
+         mod_name = case_when(grepl("lgdp_sq", source) & grepl("lpop", source) ~ "Log controls"))
+  
+#results_2019
+
+ results_2019 %>%
+   filter(ar == 0 & p_val == 0.01 & state_sample == "us_q30" & dep == "Log Patent Count") %>% 
+       dplyr::group_split(dep) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$dep)
+         cat('### ', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+
+```
+
+
+## AR(1) {.tabset}
+
+```{r  ar1_2019, echo = FALSE, results = 'asis', cache = TRUE}
+results_2019 %>%
+  filter(ar == 1 & state_sample == "us_q30" & dep == "Log Patent Count") %>% 
+       dplyr::group_split(dep) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$dep)
+         cat('### ', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+```
+
+# Robustness check {.tabset}
+
+Model specifications
+
+ * **Time series**: 2000:2019
+ * **Sample**: us_all, us_q30 (-15 less patenting states)
+ * **Function**: log_patent_count ~ lgdp + lpop + lgdp_sq + lfuel, ihs_patent_count ~ lgdp + lpop + lgdp_sq + lfuel (removed avg_temp as it was not significant)
+ * **p-val**: 0.01, 0.05
+ * **AR(0,1)**
+ 
+## AR(0) {.tabset}
+
+```{r rob_ar0, echo = FALSE, results = 'asis', cache = TRUE}
+
+# model data preparation
+results_robust <- readRDS(here("model_spec/results/models_w_fuel.RDS")) %>% 
+  separate(source, into = c("dep","formula"), sep = "[~]", remove = FALSE) %>%
+  mutate(dep = str_to_title(gsub("_"," ",trimws(dep))),
+         formula = trimws(formula),
+         mod_name = case_when(grepl("lgdp_sq", source) & grepl("lpop", source) ~ "Log controls"))
+
+results_robust %>%
+  filter(ar == 0 & p_val == 0.01) %>% 
+       dplyr::group_split(dep) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$dep)
+         cat('### ', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+  
+
+```
+
+## AR(1) {.tabset}
+
+```{r rob_ar1, echo = FALSE, results = 'asis', cache = TRUE}
+
+results_robust %>%
+  filter(ar == 1) %>% 
+       dplyr::group_split(dep) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$dep)
+         cat('### ', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+```
+
+
+# Policy attribution
+
+## Database description
+
+```{r, echo=FALSE, fig.height=5,fig.width=5}
+
+policy2 <- read_csv(".\\policy_dataset1.csv", show_col_types = FALSE)
+
+npol_state = as.data.frame(table(policy2$state_name))
+
+npol_state %>%
+  arrange(Freq) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
+  mutate(name = fct_reorder(Var1, Freq)) %>%   
+  ggplot(aes( x=name,y=Freq))+
+    geom_segment( aes(xend=Var1, yend=0)) +
+    geom_point( size=1.7, color="orange") +
+    coord_flip() +
+    theme_bw() +
+    theme(axis.text.y = element_text( hjust = 1, size=5,color="Black"))+
+    xlab("")+ ylab("Number of Policies") + ggtitle("Number of policies per state")
+
+
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+npol2 <- npol_state[order(npol_state$Freq, decreasing = TRUE),] 
+
+npol2 %>% 
+  rename("State" = "Var1", 
+         "Number of policies" = "Freq") %>%  
+  kable(format = "html") %>% 
+  kable_styling(bootstrap_options = c("hover", "responsive"), full_width = F, fixed_thead = T,  position = "left") %>% 
+  scroll_box(width = "300px", height = "600px")
+
+```
+
+
+```{r, echo=FALSE, fig.height=5,fig.width=5}
+#POLICY TYPE
+df_policy_type = as.data.frame(table(policy2$policy_type))
+ 
+ 
+ df_policy_type %>%
+  mutate(name = fct_reorder(Var1, Freq)) %>%
+  ggplot( aes( x=name,y=Freq)) +
+    geom_bar(stat="identity", fill="#076fa2",  width=.8) +
+    coord_flip() +
+    xlab("") + ylab('Number of Policies')+
+    theme_bw() + theme(axis.text.y = element_text( hjust = 1, size=6,color="Black")) + ggtitle("Types of policies")
+ 
+ 
+```
+
+```{r, echo=FALSE, fig.height=7,fig.width=7}
+
+df_policy_cat = as.data.frame(table(policy2$program_category))
+
+regulatory_df = as.data.frame(table(policy2[policy2$program_category == 'Regulatory Policy', ]$policy_type)) 
+ 
+pol1 <- ggplot(regulatory_df, aes(area = Freq, fill = Freq, label = Var1)) +
+  geom_treemap() +
+  geom_treemap_text(colour = "white",
+                    place = "centre",
+                    size = 15) +  ggtitle("REGULATORY POLICIES TYPES")
+
+financial_df = as.data.frame(table(policy2[policy2$program_category == 'Financial Incentive', ]$policy_type))
+
+pol2 <-  ggplot(financial_df, aes(area = Freq, fill = Freq, label = Var1)) +
+  geom_treemap() +
+  geom_treemap_text(colour = "white",
+                    place = "centre",
+                    size = 15) +  ggtitle("FINANCIAL INCENTIVE POLICIES TYPES")
+
+policy_categories <- grid.arrange(pol1,pol2, ncol=1, nrow=2, respect = FALSE)
+
+```
+
+## Policy attribution
+
+Model specification of attributed breaks
+
+ * **Time series**: 2000:2019
+ * **Sample**: us_q30 
+ * **Function**: log_patent_count ~ lgdp + lpop + lgdp_sq
+ * **p-val**: 0.01
+ * **AR(1)** 
+ * Applied interval of +/- 5y
+ 
+**Reflection and questions**
+
+- How to look for policies when there's a negative break? Should I look for the year when policies have stopped? Difficult to establish from the database
+
+- What is the influence of rebate/loan programs in the patent context? There's a lot of them - for now gave more importance to standards / incentives / big projects. I've never seen them in the other policy databases. 
+
+- What is the influence of interconnection standards in the patent context? it is a policy, together with Renewable Portfolio Standards, that appears in every state (not always relevant in the interval of years though) 
+
+General findings: 
+
+ * states with lots of policies are also high patenting states!
+ 
+ * a lot of RE investment in houses through the ARRA (American Recovery and Reinvestment Act of 2009 - post crisis). 
+ 
+ * **issue with NAs in the years**
+
+General feeling: when there's a break, it is likely that around that period the state started issuing programs of renewable energy policies. 
+
+### Breaks (8):
+
+Here you find the main policies that were found in the database. Here I only put the ones that I considered the most relevant, on which I did a deeper research. For a more complete overview I would suggest to have a look at the excel sheet "attributed_policies", where you find all the policies that I found in the database in the relevant interval of time. 
+
+**Connecticut 2009 (-)**
+
+ - Renewable Portfolio Standards (2006) 
+ 
+ - Clean Energy Fund (1998): The fund, created by PA 98-28, supports a wide range of renewable and clean energy projects and renewable energy technologies, including fuel cells.
+ 
+ - PROJECT 150 (2003): PA 03-135 required electric companies to enter into minimum 10-year contracts for at least 100 megawatts of class I renewable power (PA 07-242 increased the amount to 150 megawatts). Class I resources include solar and wind energy as well as power produced by fuel cells. The power must come from facilities with a capacity of at least one megawatt that have received funding from the Clean Energy Fund. The law entitles generators who enter into these contracts to choose from two pricing mechanisms that are tied to market prices for power plus a premium.
+ 2007 the Clean Energy Fund provided $176,000 to the University of Connecticut. The university, in collaboration with the United Technologies Company, used the funding to create advanced optical diagnostic tools to help develop proton exchange membrane fuel cell systems. Also in 2007, the fund provided a 600,000 grant, through its Operational Demonstration Program, to support a project to separate excess hydrogen generated by high-temperature fuel cells through a process that requires relatively low energy consumption and is less expensive than existing mechanical separation technologies.
+ 
+ - Fuell Cell Initiative (2003)
+ 
+**Delaware 2014 (-)**
+ 
+ - Renewable Portfolio Standards (2005) --> In 2005, Senate Bill 74 established a renewables portfolio standard (RPS) requiring Delaware retail electricity suppliers to purchase 10% of theelectricity sold in the state from renewable sources by 2019. Senate Bill 19 of 2007 increased the RPS target to 20%, and added a requirement that a portion of the requirement be met with solar photovoltaic (PV) resources. Thestandard was expanded again to 25% renewables and 3.5% photovoltaics by 2026by S.S. 1 for S.B. 119 enacted in July 2010. The PV target began at 0.011% forthe June 2008 - May 2009 compliance year (CY 2009) and accelerates slowly overtime towards an ultimate target of 3.5% for compliance year 2025-2026. The RPS applies to the state's investor-owned utilities, retail electricity suppliers,municipal utilities, and rural electric cooperatives. **Municipal utilities and rural electric cooperatives are allowed to opt out of the RPS requirements if they establish a comparable RPS program for their own ratepayers by 2013, and establish a green energy fund**.  
+ Credit multipliers: Several compliance multipliers are currently available under the Delaware RPS. One of those multipliers --> **300% credit toward RPS compliance for in-state customer-sited photovoltaic generation and fuel cells using renewable fuels that are installed on or before December 31, 2014**. The 300% multiplier cannot be applied to SRECs used for compliance with the PV carve-out, thus for PV carve-out compliance purposes, SRECs are counted on a 1-to-1 basis. The 300% credit formerly applied to all solar electric generation prior to the 2007 amendments.(https://programs.dsireusa.org/system/program/detail/1231/renewables-portfolio-standard)
+ 
+**District of Columbia 2008 (-); 2012 (+)**
+ 
+ - In October 2008, the District of Columbia enacted the Clean and Affordable Energy Act (CAEA), which effectively eliminated the RETF and replaced it with the Sustainable Energy Trust Fund (SETF) in 2011. -->  This program is administered by the third-party DC Sustainable Energy Utility (DCSEU) which develops, coordinates,and provides programs for promoting the sustainable use of energy in the District of Columbia. Since 2011, DCSEU has saved residents $1.2 billion inenergy, invested over fifty million in low-income communities, and prevented 6.2 million tons of greenhouse gases.  Notable expendituresinclude $2.4M to low-income multifamily projects, $814,000 in energy rebatesto businesses, $1.1M to workforce development, and $4.4M to custom commercial renovations and installations.**Programs**  In the past, the RETF program supported weatherization measures; appliance replacements for low-income residents; RAD extension; LIHEAP expansion and education; energy efficiency for small businesses, institutions and nonprofits; ENERGY STAR appliance and lighting rebates, home energy ratings and loan promotions, public education and outreach, distributed generation and net metering; and renewable-energy demonstration projects.  
+ 
+ - Solar Renewable Energy Credits 2005-2006: The solar requirements began in 2007 at 0.005% of retail electricity sales and increase annually
+ 
+ - Renewable Portfolio Standards (2005)
+ 
+ - Community Renewable Energy Amendment Act (2013): This program sets a production capacity of 5MW on all systems, along with a minimum of two (2)subscribers. Community renewable energy facilities (CREF) may offset no more than 120% of the subscriber's electricity consumption over the prior 12months. All individual billing meters must be within the District of Columbia.Credit rates will be applied to customer's each billing month, and will be allocated by multiplying the quantity of kilowatt hours allocated to each subscriber by the subscriber's CREF credit rate. The CREF credit rate is equal to to the standard offer service rate for the General Service Low Voltage Non-Demand Customer class or its successor, as determined by the Commission. 
+ 
+**Iowa 2002 (+) [only at pval 0.05]**
+ 
+ - Renewable Electricity Production Tax Credit (PTC) (1992) - Federal law
+ 
+ - Renewable portfolio standard (1983) a.k.a Alternative Energy Law (AEL) in DSIRE
+ Alternate Energy Revolving Loan Program (1996)
+ 
+ - "In 2001, the Iowa lawmakers passed the state's advanced ratemaking principles, which allowed utilities to own wind turbines, with shared benefits between customers and utilities, and kick-started heavy investment in wind production in the years that followed." (from https://www.thegazette.com/news/iowas-status-as-a-renewable-energy-leader-how-we-got-here-and-whats-next/) 
+ 
+**Nevada 2012 (-)**
+ 
+ - Large Scale Renewable Energy Property Tax Abatement (Nevada State Office of Energy) (2009)
+ 
+ - Portfolio Energy Credits (2006)
+ 
+ - Renewable Energy Sales and Use Tax Abatement (2009)
+ 
+**Oregon 2004 (-)**
+ 
+ - Energy Trust of Oregon (1999) creation and started operations in 2002 (SB 1149 LEGISLATION) 
+ 
+**Rhode Island 2004 (-)**
+ 
+ - Renewable Energy Standards (2004) --> Requirement: 14.5% by 2019, with increases of 1.5% each year until 38.5% by 2035. Applicable Sectors: Investor-owned utility, retail supplier.
+ 
+ - Rhode Island Renewable Energy Fund (RIREF) (1997) --> CommerceRI’s Renewable Energy Fund (REF) is supported by a surcharge on electric and gas customers' bills. Initially, the surcharge was was set at 0.0023 per kilowatt-hour (2.3 mills per kWh) and applied only to electric utilities. That funding supported both renewables and DSM programs. The law was amended in 2002 by establishing separate surcharges for renewables and DSM. The adjusted surcharge for renewables -- set at 0.0003 (0.3 mills) per kWh -- and the adjusted surcharge for DSM programs -- set at $0.002 (2.0 mills) per kWh -- was initially scheduled to remain in effect for 10 years, beginning January 1, 2003. 
+The annual budget for the renewables fund during this 10-year period was approximately 2.4 million. Beginning January 1, 2007, Rhode Island's gas-distribution utilities were required to include a surcharge of up to $0.15 per decatherm delivered. Legislation enacted in May 2011 (H.B. 5281) removed the specific surcharge amounts for electric and gas DSM programs. The bill also extended the duration of the overall fund to January 1, 2018.
+
+**South Carolina 2008 (+) [2002 (-) at pval = 0.05]**
+
+ - Santee Cooper green power program (2001) --> Santee Cooper's Green Power Program was launched in September of 2001. The Green Power Program is Green-e accredited. 19 of the state's 20 electric cooperatives participate. The resources are >99% landfill gas (methane) and<1% solar. Santee Cooper owns all renewable generation, currently 3 landfills and 1 solar demonstration project for a total of 14.2 megawatts.
+ 
+ - Conserfund started 2000 and Conserfundplus in 2009 (ended in 2020) (https://energy.sc.gov/files/view/Conserfund%20Program%20Overview_LM_05.29.2020_0.pdf)
+ 40$ million total fund 
+ 
+ - Interconnection guidelines adoption 2006: 
+ The South Carolina Public Service Commission (PSC) adopted simplified interconnection guidelines for small distributed generation (DG) in December 2006. South Carolina's interconnection guidelines apply to Progress Energy,Duke Energy, and South Carolina Electric and Gas. These guidelines address interconnection of renewable- energy systems and other forms of DG in three levels -    1. Fast Track interconnection for a certified inverter based generating unit up to 20 kW    2. Fast Track for interconnection for systems larger than 20 kW up to 2 MW    3. For larger interconnection systems greater than 2 MW requiring interconnection study. 
+ 
+ - 2007 state building energy standards
+ 
+ - Renewable Energy Grant Program (2007) + Renewable Energy Revolving Loan Program (2007)
+ provides grants to private and public entities located in South Carolina to assist those involved in renewable energy-related research and projects to become more competitive in obtaining federal and other grants. Matching grants up to $200,000 are available for demonstration projects that validate the effectiveness of new and future biomass technologies and products, provided that the grant does not exceed 50% of the total cost of the demonstration project. The South Carolina Department of Agriculture administers the grant program, in cooperation with the South Carolina Institute of Energy Studies and the South Carolina Research Authority. Disbursement of these funds must be approved by the South Carolina Renewable Energy Oversight Committee. Grants are also available for project planning and research and development projects.
+ 
+**Interesting/relevant federal policies**
+
+American Recovery and Reinvestment Act (ARRA) (2009)
+
+Renewable Electricity Production Tax Credit (PTC) (1992)
+The federal renewable electricity production tax credit (PTC) is an inflation-adjusted per-kilowatt-hour (kWh) tax credit for electricity generated by qualified energy resources and sold by the taxpayer to an unrelated person during the taxable year. The duration of the credit is 10 years after the date the facility is placed in service. Interesting --> this PTC was set to expire in 1999, but it was extended 12 times. 

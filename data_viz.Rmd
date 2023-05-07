@@ -33,11 +33,11 @@ box_plot_by_year <- ggplot(df) +
                              y = patent_count), 
                outlier.colour="red",
                 outlier.size=1) +
-  labs(x = "Priority filing year", y =  "Patent count") + theme_bw() + ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution over time") 
+  labs(x = "Priority filing year", y =  "Patent count") + theme_bw() + ggtitle("", subtitle = "") 
 
 box_plot_by_year
 
-ggsave(".\\fig_new\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 10, height = 10)
+ggsave(".\\figures\\box_plot_by_year.png", plot = box_plot_by_year, device = "png", width = 8, height = 8)
 
 ```
 
@@ -52,11 +52,14 @@ box_plot_by_state <- df %>%
   facet_wrap(~state_name, scales = "free_y") +
   labs(x = "", y =  "Patent count") + 
   theme_bw() + 
-  ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by State") 
+  ggtitle("", subtitle = "") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
 
 box_plot_by_state
 
-#ggsave(".\\figs_new\\box_plot_by_state.png", plot = box_plot_by_state, device = "png", width = 10, height = 10)
+ggsave(".\\figures\\box_plot_by_state.png", plot = box_plot_by_state, device = "png", width = 10, height = 10)
 
 ```
 ## Boxplot - entire distribution
@@ -83,6 +86,41 @@ box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths 
 ggsave(".\\figs_new\\box_hist_dist.png", plot = box_hist_dist, device = "png", width = 8, height = 8)
 
 ```
+
+## Histogram & boxplot
+```{r, echo=FALSE, fig.height=7,fig.width=7}
+
+stats_pat <- df %>% # create df with stats needed: mean, median, max by state
+  select(state_name, patent_count) %>% 
+  group_by(state_name) %>% 
+  summarise(median = median(patent_count, na.rm=TRUE), 
+            mean = mean(patent_count, na.rm=TRUE), 
+            q75 = quantile(patent_count, 0.75), 
+            max = max(patent_count, na.rm=TRUE))
+
+box <- stats_pat %>% 
+  ggplot(aes(x = mean))+ 
+  geom_boxplot(colour = "black") +
+  xlab("")+
+  ylab("") +
+  theme_bw()
+
+hist <- stats_pat %>% 
+  ggplot(aes(x = mean)) +
+  geom_histogram(bins = 51, binwidth = 1, fill = "navy", colour = "black") +
+  xlab("") +
+  ylab("") +
+  theme_bw()
+
+
+box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "", bottom = "State mean patent counts")
+
+ggsave(".\\figures\\box_hist_means.png", plot = box_hist_dist, device = "png", width = 8, height = 8)
+
+
+
+```
+
 
 ## Histogram - entire distribution
 ```{r}
@@ -206,15 +244,16 @@ stats_pat %>%
 ```{r us_map, fig.height=3, fig.width=3}
 library(usmap)
 library(viridis)
+library(scales)
 
 df1<- df %>% select(state_name, patent_count) %>% group_by(state_name) %>% summarise(total_count = sum(patent_count)) %>% 
   rename("state"="state_name")
 
 map1 <- plot_usmap(data = df1, values = "total_count") + 
-  scale_fill_viridis(option = "plasma") + 
+  scale_fill_viridis_c(option = "plasma", oob = scales::squish) + 
   theme(legend.position = "right", 
         legend.title = element_blank())
-
+map1
 #ggsave(".\\figures\\map_patent_counts.png", plot = map1, device = "png", width = 8, height = 8)
 
 

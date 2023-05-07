@@ -81,13 +81,16 @@ box <- stats_pat %>%
 
 hist <- stats_pat %>% 
   ggplot(aes(x = mean)) +
-  geom_histogram(bins = 51, fill = "navy", colour = "black") +
+  geom_histogram(bins = 51, binwidth = 1, fill = "navy", colour = "black") +
   xlab("") +
   ylab("") +
   theme_bw()
 
 
-box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "Y02E class patent counts. State mean distribution ", bottom = "State mean patent counts")
+box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "", bottom = "State mean patent counts")
+
+ggsave(".\\figures\\box_hist_means.png", plot = box_hist_dist, device = "png", width = 8, height = 8)
+
 
 
 ```
@@ -97,7 +100,7 @@ box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths 
 
 ```{r, echo=FALSE, fig.height=3.5,fig.width=7}
 hist2 <- stats_pat %>% 
-  filter(!state_name == "California") %>% 
+  #filter(!state_name == "California") %>% 
   ggplot(aes(x = mean)) +
   geom_histogram(binwidth = 1, fill = "navy", colour = "black") +
   xlab("State mean patent counts") +

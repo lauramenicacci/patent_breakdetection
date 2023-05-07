@@ -1,0 +1,414 @@
+---
+title: "Final decision models"
+author: "Laura Menicacci"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 3000)
+```
+
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, max.height = '300px', fig.width = 16, fig.height = 8) #fig.show="hold",,
+
+library(data.table)
+library(tidyverse)
+library(openxlsx)
+library(gets)
+library(getspanel)
+library(here)
+library(doParallel)
+library(gridExtra)
+library(conflicted)
+library(viridis)
+library(kableExtra)
+#library(gplots)
+library(parameters)
+library(pander)
+
+conflict_prefer("filter", "dplyr")
+conflict_prefer("first", "dplyr")
+conflict_prefer("lag", "dplyr")
+
+
+```
+
+
+
+```{r, include = FALSE}
+# Plotting functions
+
+f <- function(k) {
+  step <- k
+  function(y) seq(floor(min(y)), ceiling(max(y)), by = step)
+}
+
+# Arranges result plots (plot and plot_grid) and prints model results
+# Option to suppress model results using results = FALSE is required for automatic tabsetting.
+gen_p <- function(df, results = TRUE, auto = FALSE){
+  if(nrow(df) == 0){return("Empty data frame. Model likely not run.")}else{
+    for(i in 1:nrow(df)){
+      mt <- paste0(df$state_sample[i], " (", df$year_range[i],")", "; p.value: ",df$p_val[i],  "; AR: ",df$ar[i])
+      st <- paste0("Formula: ", df$source[i])
+      
+      res <- df %>% slice(i) %>% pull(is) %>% first
+      
+      pl <- res %>% 
+        plot(zero_line = FALSE) +
+        ggtitle(label = mt, subtitle = st) +
+        scale_x_continuous(breaks = f(10))
+      
+      pg <- res %>%
+        plot_grid() +
+        ggtitle(label = mt, subtitle = st)
+      grid.arrange(pl, pg, ncol = 2)
+      
+      if(results == TRUE & auto == FALSE){
+        print(st)
+        print(mt)
+        print(res)
+      }else if(results == TRUE & auto == TRUE){
+        p <- invisible(capture.output(res$isatpanel.result))
+        # Spacing included to trick knitr into reading as verbatim code.
+        cat(c("                         \n", 
+              "                         \n", 
+              paste("                  ", st,'     \n'),
+              paste("                  ", mt,'     \n'),
+              paste("                  ", p,'     \n')))
+      }
+    }
+  }
+}
+
+```
+
+
+
+```{r, include=FALSE}
+
+library(assertthat)
+
+# Data manipulation function: extracts plot_grid input data from getspanel
+# mod = df of models as created above. Minimum requirement is 2 columns (is =  isatpanel object, model = model name)
+# na.rm removes countries for which NO model reveals a break/effect
+convert <- function(mod){
+  if(nrow(mod) == 0){
+    print("No models to plot.")
+  }else{
+    c_mods <- tibble()
+    for(m in 1:nrow(mod)){
+      if(mod %>% slice(m) %>% pull(is) %>% first %>% plot_grid %>% ggplot_build %>% try %>% is.error){next}else{
+      mod_name <- mod %>% slice(m) %>% pull(mod_name)
+      # Currently, this extracts the data used to build the plot_grid in isatpanel; not ideal
+      grid_dat <- mod %>% slice(m) %>% pull(is) %>% first %>% plot_grid %>% ggplot_build
+      grid_dat <- grid_dat$plot$data
+      grid_dat$model <- mod_name
+      c_mods <- rbind(c_mods, grid_dat)
+    }
+  }
+  return(c_mods)
+  }
+}
+
+# Possible that this incorrectly distinguishes negative and positive breaks by including impulse effects? To be checked and corrected.
+plot_comp <- function(mod, panel = "country", na.rm = TRUE, sign = NULL){
+  tmp <- convert(mod)
+  
+  if(panel == "model"){
+    tmp <- tmp %>% rename(id = model, model = id)
+  }else if(!(panel == "country")){
+    print("Error")
+    break}else{}
+  
+  if(na.rm == TRUE){
+    tmp <- tmp %>% group_by(id) %>% filter(!all(is.na(effect)))
+  }
+  if(sign == "pos"){
+    tmp <- tmp %>% group_by(id) %>% filter(any(effect > 0))
+    
+  }else if(sign == "neg") { tmp <- tmp %>% group_by(id) %>% filter(any(effect < 0))}
+  
+  p <- tmp %>% ggplot(aes(x = time, y = model)) +
+    geom_tile(aes(fill = effect), na.rm = NA) +
+    scale_fill_gradient2(na.value = NA, name = "Effect")+
+    scale_x_continuous(expand = c(0,0)) +
+    scale_y_discrete(expand = c(0,0), limits = rev) +
+    facet_grid(id~.) +
+    theme_bw() +
+    theme(panel.grid = element_blank(),
+          panel.border = element_rect(fill = NA),
+          strip.background = element_blank(),
+          axis.text = element_text(size = 12, color = "black"),
+          strip.text.y = element_text(size = 14, angle = 0)) +
+    labs(x = NULL, y = NULL,title= "Model Overview")
+  
+  print(p)
+}
+```
+
+
+
+```{r, echo=FALSE}
+results_2019 <- readRDS(here("model_spec/results/models_2019.RDS")) %>% 
+  separate(source, into = c("dep","formula"), sep = "[~]", remove = FALSE) %>%
+  mutate(dep = str_to_title(gsub("_"," ",trimws(dep))),
+         formula = trimws(formula),
+         mod_name = case_when(grepl("TRUE", iis) ~ "Model w IIS")) %>% 
+  filter(dep == "Log Patent Count" & state_sample == "us_q30")
+
+noiis <- readRDS(here("model_spec/results/model_final_noiis.RDS")) %>% 
+  separate(source, into = c("dep","formula"), sep = "[~]", remove = FALSE) %>%
+  mutate(dep = str_to_title(gsub("_"," ",trimws(dep))),
+         formula = trimws(formula),
+         mod_name = case_when(grepl("FALSE", iis) ~ "Model w/o IIS"))
+
+final_models <- rbind(results_2019, noiis)
+  
+```
+
+
+# Model specification {.tabset} 
+
+ * **Time series: 2000:2019**
+ * **Sample: us_q30** (-15 less patenting states)
+ * **Function: log_patent_count ~ lgdp + lpop + lgdp_sq**
+ * **p-val: 0.01, 0.05**
+ * **AR(0,1)**
+
+## with IIS {.tabset}
+
+```{r  mod1 , echo = FALSE, results = 'asis', cache = TRUE}
+
+final_models %>%
+  filter(mod_name == "Model w IIS") %>% 
+  #filter(ar == 0 & p_val == 0.01) %>% 
+       dplyr::group_split(ar) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$ar)
+         cat('### AR', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+
+```
+
+
+## without IIS {.tabset}
+
+```{r  mod2, echo = FALSE, results = 'asis', cache = TRUE}
+
+final_models %>%
+  filter(mod_name == "Model w/o IIS") %>% 
+  #filter(ar == 1) %>% 
+       dplyr::group_split(ar) %>%
+       purrr::iwalk(.,~{
+         name <- unique(.x$ar)
+         cat('### AR', name, '{.tabset}   \n')
+              for(p in unique(.x$p_val)){
+                   cat('#### ', p, '{.tabset}   \n')
+                for(sm in unique(.x$state_sample)){
+                   cat('##### ', sm, '{.tabset}   \n')
+                   filter(.x, state_sample == sm & p_val == p) %>% gen_p(., auto = TRUE)
+                cat('\n')
+                cat('\n')
+                }
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+```
+# Different visualization & positive breaks I {.tabset} 
+
+ * Tried a different visualization function for better comparison
+ * Selected only countries with at least one **positive break**
+
+## AR(0) {.tabset} 
+
+```{r compar0, echo = FALSE, results = 'asis', cache = TRUE,fig.height=8, fig.width=8}
+
+final_models %>%
+  filter(ar == 0 & p_val == 0.01) %>% 
+       dplyr::group_split(ar) %>%
+       purrr::iwalk(.,~{
+              for(p in unique(.x$p_val)){
+                   cat('### ', p, '{.tabset}   \n')
+                   filter(.x, p_val == p) %>% plot_comp(., sign = "pos")
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+```
+
+## AR(1) {.tabset} 
+
+```{r compar1, echo = FALSE, results = 'asis', cache = TRUE,fig.height=8, fig.width=8}
+
+final_models %>%
+  filter(ar == 1) %>% 
+       dplyr::group_split(ar) %>%
+       purrr::iwalk(.,~{
+              for(p in unique(.x$p_val)){
+                   cat('### ', p, '{.tabset}   \n')
+                   filter(.x, p_val == p) %>% plot_comp(., sign = "pos")
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+```
+
+# Different visualization & positive breaks II {.tabset} 
+
+## AR(0) {.tabset} 
+
+```{r compar0II, echo = FALSE, results = 'asis', cache = TRUE,fig.height=8, fig.width=8}
+
+final_models %>%
+  filter(ar == 0 & p_val == 0.01) %>% 
+       dplyr::group_split(ar) %>%
+       purrr::iwalk(.,~{
+              for(p in unique(.x$p_val)){
+                   cat('### ', p, '{.tabset}   \n')
+                   filter(.x, p_val == p) %>% plot_comp(., panel = "model", sign = "pos")
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+```
+
+
+## AR(1) {.tabset} 
+
+```{r compar1II, echo = FALSE, results = 'asis', cache = TRUE,fig.height=8, fig.width=8}
+
+final_models %>%
+  filter(ar == 1) %>% 
+       dplyr::group_split(ar) %>%
+       purrr::iwalk(.,~{
+              for(p in unique(.x$p_val)){
+                   cat('### ', p, '{.tabset}   \n')
+                   filter(.x, p_val == p) %>% plot_comp(., panel = "model", sign = "pos")
+           cat('\n')
+           cat('\n')
+           }
+         cat('\n')
+         cat('\n')
+       })
+
+```
+
+
+
+# Scatterplots
+
+```{r, fig.height=7, fig.width=7, echo=FALSE}
+counts <- read_csv("C:/Users/laura/OneDrive/Documenti/LAURA/HERTIE 22-23/THESIS/patent_breakdetection/model_spec/df.csv", show_col_types = FALSE) %>% group_by(state_name) %>% summarise(tot_count_per_state = sum(patent_count))
+
+
+pol <- read_csv("C:/Users/laura/OneDrive/Documenti/LAURA/HERTIE 22-23/THESIS/patent_breakdetection/policy_dataset1.csv", show_col_types = FALSE) %>% select(state_name, policy_name, policy_type) %>% group_by(state_name) %>% count
+
+p_c <- left_join(counts, pol, by = c("state_name"))
+
+breaks <- c("Connecticut", "Delaware", "District of Columbia", "Nevada", "Oregon", "Rhode Island", "South Carolina")
+
+p1 <- p_c %>% 
+  ggplot(aes(x = tot_count_per_state, y = n, color = "coral3"))+
+  geom_point(size=1, alpha = 0.7)+
+  theme_bw()+
+  ggtitle("All states") +
+  ylab("number of policies") + xlab("patent counts") +
+  theme(legend.position = "none")
+
+p3 <- p_c %>% 
+  filter(!state_name == "California") %>% 
+  ggplot(aes(x = tot_count_per_state, y = n, color = "coral3"))+
+  geom_point(size=1, alpha = 0.7) +
+  theme_bw()+
+  ggtitle("All states - no California") +
+  ylab("number of policies") + xlab("patent counts") +
+  theme(legend.position = "none")
+
+p2 <- p_c %>% 
+  filter(state_name %in% breaks) %>% 
+  ggplot(aes(x = tot_count_per_state, y = n, color = state_name))+
+  geom_point(size=1, alpha = 0.7) +
+  theme_bw()+
+  ggtitle("break States") +
+  ylab("number of policies") + xlab("patent counts") +
+  theme(legend.position = "right")
+
+scat <- grid.arrange(p1, p3, p2, ncol=1, nrow=3, widths = c(10), heights = c(6, 6, 6),respect = FALSE, top = "Patent count against number of policies")
+
+```
+
+# Insights about specific states
+```{r, fig.height=7, fig.width=7, echo=FALSE}
+# leg <- c("Patent count", "Number of policies")
+
+s1 <- p_c %>% 
+  filter(!state_name == "California") %>% 
+  arrange(desc(tot_count_per_state)) %>% 
+  ggplot() + 
+  geom_col(aes(reorder(state_name, tot_count_per_state), tot_count_per_state),  fill  = "steelblue") + 
+  geom_col(aes(reorder(state_name, n), n),  fill ='coral2') + 
+  coord_flip() + 
+  theme_bw() + 
+  theme(axis.text.y = element_text( hjust = 1, size=6, color ="Black")) +
+  ggtitle("All states except California") +
+  ylab("") + xlab("")
+
+
+s2 <- p_c %>% 
+  filter(state_name %in% breaks) %>% 
+  arrange(desc(tot_count_per_state)) %>% 
+  ggplot() + 
+  geom_col(aes(reorder(state_name, tot_count_per_state), tot_count_per_state),  fill  = "steelblue") + 
+  geom_col(aes(state_name, n),  fill ='coral2') + 
+  coord_flip() + 
+  scale_colour_manual(name="x", labels = c("Number of patents", "Number of policies"), aesthetics = c("colour")) +
+  theme_bw() + 
+  theme(axis.text.y = element_text( hjust = 1, size=6,color="Black")) +
+  ggtitle("break States") +
+  ylab("") + xlab("")
+
+
+scat2 <- grid.arrange(s1, s2, ncol=1, nrow=2, widths = c(5), heights = c(8, 6),respect = FALSE, top = "Policies vs patent counts per state arranged by patent count (blue)")
+```
+
+
+```{r}
+ar1_pval5_bu_iisT <- break_uncertainty(final_models$is[[4]], interval = 0.99)
+
+ar1_pval1_bu_iisT <- break_uncertainty(final_models$is[[3]], interval = 0.99)
+
+
+ar1_pval1_bu_iisT
+
+break_uncertainty(final_models$is[[1]], interval = 0.99)
+
+```
+

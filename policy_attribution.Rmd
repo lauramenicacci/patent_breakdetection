@@ -45,7 +45,7 @@ policy2 <- policy2 %>%
 
 policy2$program_category <- ifelse(policy2$program_category == 1, "Financial Incentive", "Regulatory Policy")
 
-write_csv(policy2, ".\\policy_dataset1.csv")
+#write_csv(policy2, ".\\policy_dataset1.csv")
 
 ```
 
@@ -70,13 +70,15 @@ table(is.na(policy$start_date))
 
 ```{r}
 
-breaks <- c("Connecticut", "Delaware", "District of Columbia", "Nevada", "Oregon", "Rhode Island", "South Carolina")
+policy2 <- read_csv(".\\policy_dataset1.csv")
 
-# connecticut 2009 
+breaks <- c("Wisconsin", "South Carolina", "District of Columbia","Kentucky",  "Tennessee", "Virginia")
+
+
 filt <- policy2 %>% 
   filter(state_name %in% breaks)
 
-write_csv(filt, ".\\filtered_policies_by_breakstate.csv")
+write_csv(filt, ".\\filtered_policies_by_positive_break.csv")
 
 ```
 # New Mexico?
@@ -151,7 +153,7 @@ library(treemapify)
   geom_treemap() +
   geom_treemap_text(colour = "white",
                     place = "centre",
-                    size = 15) +  ggtitle("FINANCIAL INCENTIVE POLICIES TYPES")
+                    size = 15) +  ggtitle("Financial incentive policy types")
 ```
 
 
@@ -166,3 +168,24 @@ ggplot(regulatory_df, aes(area = Freq, fill = Freq, label = Var1)) +
 
  
 ```
+# policy attribution by neighboring state
+
+```{r}
+tn_neigh <- c("Missouri", "Arkansas", "Mississippi", "Alabama", "Georgia", "North Carolina", "Virginia", "Kentucky")
+
+ky_neigh <- c("Indiana", "Ohio", "Illinois", "West Virginia", "North Carolina", "Virginia","Missouri","Tennessee")
+
+sc_neigh <- c("North Carolina", "Georgia", "Tennessee")
+
+dc_neigh <- c("Virginia", "Delaware", "West Virginia", "Pennysilvania")
+
+wi_neigh <- c("Michigan", "Minnesota")
+
+policy2 %>% 
+  filter(state_name %in% wi_neigh) %>% 
+  ggplot(aes(x = start_year, fill = policy_type)) +
+  geom_bar() +
+  theme(legend.position = "right")
+  
+```
+

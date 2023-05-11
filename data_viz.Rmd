@@ -83,7 +83,7 @@ box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths 
 
 #hist_boxplot(df$patent_count, col = "lightblue", freq = TRUE, breaks = 20) + 
 
-ggsave(".\\figs_new\\box_hist_dist.png", plot = box_hist_dist, device = "png", width = 8, height = 8)
+#ggsave(".\\figs_new\\box_hist_dist.png", plot = box_hist_dist, device = "png", width = 8, height = 8)
 
 ```
 
@@ -101,21 +101,33 @@ stats_pat <- df %>% # create df with stats needed: mean, median, max by state
 box <- stats_pat %>% 
   ggplot(aes(x = mean))+ 
   geom_boxplot(colour = "black") +
+  geom_vline(xintercept = quantile(stats_pat$mean, 0.3), color = "red")+
   xlab("")+
   ylab("") +
-  theme_bw()
+  theme_clean() +
+  theme(plot.background = element_blank(), 
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
 
 hist <- stats_pat %>% 
   ggplot(aes(x = mean)) +
-  geom_histogram(bins = 51, binwidth = 1, fill = "navy", colour = "black") +
-  xlab("") +
+  geom_histogram(bins = 51, binwidth = 1, fill = "navy", colour = "black", alpha = 0.7) +
+  geom_vline(xintercept = quantile(stats_pat$mean, 0.3), color = "red") +
+  xlab("state mean patent counts") +
   ylab("") +
-  theme_bw()
+  theme_clean() +
+  theme(plot.background = element_blank())
 
 
-box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "", bottom = "State mean patent counts")
+#box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "", bottom = "State mean patent counts",)
 
-ggsave(".\\figures\\box_hist_means.png", plot = box_hist_dist, device = "png", width = 8, height = 8)
+library(cowplot)
+box_hist_dist <- plot_grid(box, hist, align = 'v', nrow = 2, ncol = 1) + xlab("State mean patent counts")
+
+box_hist_dist
+
+ggsave(".\\figures\\box_hist_means.png", plot = box_hist_dist, device = "png", width = 6, height = 6)
 
 
 
@@ -217,24 +229,44 @@ for (i in 1:nrow(stats_pat)){
 
 ```{r}
 
-stats_pat %>% 
+dist1 <- stats_pat %>% 
   ggplot(aes(x = mean)) + 
-  geom_boxplot()
+  geom_boxplot(outlier.colour="red",
+               outlier.size=1) +
+  theme_clean() +
+  xlab("") +
+  theme(plot.background = element_blank(), 
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) 
 
-stats_pat %>% 
-  filter(!state_name %in% nonpat_q20) %>% 
-  ggplot(aes(x = mean)) + 
-  geom_boxplot()
+#stats_pat %>% 
+#  filter(!state_name %in% nonpat_q20) %>% 
+#  ggplot(aes(x = mean)) + 
+#  geom_boxplot()
+#
+#stats_pat %>% 
+#  filter(!state_name %in% nonpat_q25) %>% 
+#  ggplot(aes(x = mean)) + 
+#  geom_boxplot()
 
-stats_pat %>% 
-  filter(!state_name %in% nonpat_q25) %>% 
-  ggplot(aes(x = mean)) + 
-  geom_boxplot()
-
-stats_pat %>% 
+dist2 <- stats_pat %>% 
   filter(!state_name %in% nonpat_q30) %>% 
   ggplot(aes(x = mean)) + 
-  geom_boxplot()
+  geom_boxplot(outlier.colour="red",
+               outlier.size=1)+
+  xlab("state mean patent counts") +
+  theme_clean() +
+  theme(plot.background = element_blank(), 
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+change_dist <- plot_grid(dist1, dist2, align = 'v', nrow = 2, ncol = 1) + xlab("State mean patent counts")
+
+change_dist
+
+ggsave(".\\figures\\change_dist_means.png", plot = change_dist, device = "png", width = 6, height = 4)
 
 ```
 

@@ -158,14 +158,29 @@ pat_all_series <- pat_all %>%
   group_by(region) %>% 
   ggplot(aes(x = prio_year, y = patent_count)) + 
   geom_line(linewidth = 0.5, colour = "navy") + 
-  facet_wrap(~region) + 
+  facet_wrap(~region, scales = "free") + 
   theme_minimal() + 
   labs(x = "Priority year", y = "Patent count") +
-  ggtitle("Total patent counts by US State (Y02E class)")
+  ggtitle("")
 
 pat_all_series
 
-ggsave("ALL_count_timeseries.png", plot = pat_all_series, device = "png", width = 10, height = 10)
+library(ggthemes)
+library(ggsci)
+
+clean_ts <- df %>% 
+  group_by(state_name) %>% 
+  ggplot(aes(x = prio_year, y = patent_count)) + 
+  geom_line(linewidth = 0.5, colour = "navy") + 
+  facet_wrap(~state_name, scales = "free") + 
+  theme_clean() + 
+  theme(plot.background = element_blank()) +
+  labs(x = "Priority year", y = "Patent count") +
+  ggtitle("")
+
+clean_ts
+  
+ggsave(".\\clean_timeseries.png", plot = clean_ts, device = "png", width = 10, height = 10)
 
 ```
 
@@ -188,21 +203,33 @@ pat_plot <- pat %>%
 pat_plot$CPC_Class <- pat_plot %>%  pull(CPC_Class) %>%   gsub("  ", " ", .)
 
 pat_plot2 <- left_join(pat_plot, cpc_names, by = c("CPC_Class"))
-  
-pat_plot2 %>% 
+
+top10_techs <- pat_plot2 %>% 
   drop_na() %>% 
   count(Name) %>% 
   arrange(desc(n)) %>% 
   head(10) %>% 
   ggplot(aes(reorder(Name, n), n)) +
-  geom_col() + 
+  geom_col(fill = "#280084", alpha = 0.7) + 
   coord_flip() +
   ylab("") + xlab("") +
-  #facet_wrap(~Up_reg_label) +
   theme_bw() +
-  scale_color_viridis(discrete=TRUE)+
-  theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
-  ggtitle("Top ten Y02E subclass by frequency")
+  theme(axis.text.y = element_text(hjust = 1, size= 7, color="Black")) +
+  ggtitle("")
+
+ggsave(".\\top10_techs.png", plot = top10_techs, device = "png", width = 7, height = 4)
+
+
+
+df1 %>% 
+  arrange(desc(total_count)) %>% 
+  head(10) %>% 
+  ggplot(aes(x = reorder(state, total_count), total_count))+
+  geom_col(fill = "#00846b", alpha = 0.7) +
+  theme_bw() +
+  coord_flip() +
+  #theme(axis.text.y = element_text(hjust = 1, size=6,color="Black")) +
+  ylab("Y02E patent count") + xlab("US State")
 
 ```
 
@@ -318,7 +345,7 @@ pat_plot2 %>%
 ```{r, fig.height=7, fig.width=7}
 breaks <- c("Virginia")
 
-techs <- c("Nuclear fission reactors", "Energy storage using batteries", "Fuel cells")
+techs <- c("Nuclear fission reactors", "Energy storage using batteries", "Fuel cells", "Wind turbines with rotation axis in wind direction", "Power conversion electric or electronic aspects")
 
 pat_plot <- pat %>%
   filter(prio_year >= 2000 & prio_year <= 2019) %>% 
@@ -347,13 +374,13 @@ pat_plot2 %>%
 
 
 pat_plot2 %>% 
-  #filter(Name %in% techs) %>% 
+  filter(Name %in% techs) %>% 
   ggplot(aes(x = prio_year, fill = Name)) +
   geom_bar() + 
   ylab("") + xlab("") +
   theme_bw() +
-  theme(legend.position = "none") +
-  ggtitle("Virginia") #+
+  theme(legend.position = "right") +
+  ggtitle("Virginia") +
   scale_fill_simpsons(palette = c("springfield"))
 
 
@@ -369,7 +396,7 @@ pat_plot2 %>%
 ```{r}
 breaks <- c("Kentucky")
 
-techs <- c("Biofuels, e.g. bio-diesel", "Energy storage using batteries","Fuel cells", "Photovoltaic [PV] energy", "Energy storage using capacitors")
+techs <- c("Biofuels", "Energy storage using batteries","Fuel cells", "Photovoltaic [PV] energy", "Energy storage using capacitors")
 
 pat_plot <- pat %>%
   filter(prio_year >= 2000 & prio_year <= 2019) %>% 
@@ -398,25 +425,23 @@ pat_plot2 %>%
 
 
 pat_plot2 %>% 
-  #filter(Name %in% techs) %>% 
-  ggplot(aes(x = prio_year, fill = Name)) +
-  geom_bar() + 
-  ylab("") + xlab("") +
-  theme_bw() +
-  theme(legend.position = "none") +
-  ggtitle("Kentucky") +
-  coord_flip()
-  scale_fill_simpsons(palette = c("springfield"))
-  
-pat_plot2 %>% 
   filter(Name %in% techs) %>% 
   ggplot(aes(x = prio_year, fill = Name)) +
   geom_bar() + 
   ylab("") + xlab("") +
   theme_bw() +
   theme(legend.position = "right") +
-  ggtitle("Kentucky") +
-  coord_flip()
+  ggtitle("Kentucky")
+  #scale_fill_simpsons(palette = c("springfield"))
+  
+pat_plot2 %>% 
+  #filter(Name %in% techs) %>% 
+  ggplot(aes(x = prio_year, fill = Name)) +
+  geom_bar() + 
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  ggtitle("Kentucky")
 
 
 #data_change <- data_change %>% 
@@ -650,6 +675,12 @@ c <- pet_ng_cons %>%
   ggtitle("Fossil fuel consumption")
 
 c + geom_vline(data = data_vline, aes(xintercept = vline), color = "red", alpha = 0.7)
+
+```
+# patenting in the us over time
+
+```{r, fig.height=7, fig.width=7}
+
 
 ```
 

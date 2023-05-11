@@ -47,8 +47,8 @@ Y02E 40/50,Arrangements for eliminating or reducing asymmetry in polyphase netw
 Y02E 40/60,Superconducting electric elements or equipment; Power systems integrating superconducting elements or equipment
 Y02E 40/70,Smart grids as climate change mitigation technology in the energy generation sector
 Y02E 50/00,Technologies for the production of fuel of non-fossil origin
-Y02E 50/10,"Biofuels, e.g. bio-diesel"
-Y02E 50/30,"Fuel from waste, e.g. synthetic alcohol or diesel"
+Y02E 50/10,Biofuels
+Y02E 50/30,Fuel from waste
 Y02E 60/00,Enabling technologies; Technologies with a potential or indirect contribution to GHG emissions mitigation
 Y02E 60/10,Energy storage using batteries
 Y02E 60/13,Energy storage using capacitors
@@ -57,7 +57,7 @@ Y02E 60/16,"Mechanical energy storage, e.g. flywheels or pressurised fluids"
 Y02E 60/30,Hydrogen technology
 Y02E 60/32,Hydrogen storage
 Y02E 60/34,Hydrogen distribution
-Y02E 60/36,"Hydrogen production from non-carbon containing sources, e.g. by water electrolysis"
+Y02E 60/36,Hydrogen production from non-carbon containing sources
 Y02E 60/50,Fuel cells
 Y02E 60/60,Arrangements for transfer of electric power between AC networks or generators via a high voltage DC link [HVCD]
 Y02E 70/00,Other energy conversion or management systems reducing GHG emissions

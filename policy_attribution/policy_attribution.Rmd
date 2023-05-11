@@ -187,5 +187,6 @@ policy2 %>%
   geom_bar() +
   theme(legend.position = "right")
   
+
 ```
 

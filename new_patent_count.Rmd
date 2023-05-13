@@ -1,0 +1,206 @@
+---
+title: "all over again"
+author: "Laura Menicacci"
+output: html_document
+---
+
+# Libraries & data
+
+```{r setup, echo=FALSE, show_col_types = FALSE}
+
+library(tidyverse)
+library(gets)
+library(getspanel)
+library(here)
+library(doParallel)
+library(readxl)
+library(gdata)
+library(gridExtra)
+
+pat_reg <- read_csv("D:\\PCT_EPO_counts\\patent_count_pct_direct_epo_regshare.csv", show_col_types = FALSE)
+
+```
+
+Email from OECD: 
+
+Dear Laura, 
+
+Thank you for your e-mail. 
+In order to proceed with fractional counts of patents by regions, I would advise you to rely on a combination of inventor share AND regional share. 
+The inventor share is based on the total number of inventors that contributed to the patented invention. 
+The regional share corresponds to cases when the address couldn’t be fully allocated to a given region. In some instances, we do not have one address (one city or one postal code)-to-one region correspondence. A probabilistic measure (the region share) is therefore applied. 
+
+Hence, in order to build statistics, we typically sum up, for each region inventor_share × region_share. 
+
+
+# build new statistics: inv_share x reg_share
+
+```{r}
+df2 <- read_csv(".\\model_spec\\df.csv")
+reg <- read_csv("D:\\For_model\\final_df_regshare.csv") %>% 
+  select(state_name, prio_year, patent_count)
+
+df_ri <- left_join(df2, reg, by = c("state_name", "prio_year"))
+
+df_ri_ok <- df_ri %>% 
+  mutate(patent_count = patent_count.x*patent_count.y)
+
+```
+
+
+# Model specifications
+
+```{r}
+dfx <- read_csv("D:\\For_model\\final_df_regshare.csv", show_col_types = FALSE)
+
+dfx2 <- df_ri_ok %>% 
+  mutate(lpop = log(pop),
+         lgdp = log(gdp),
+         lgdp_sq = log(gdp)^2,
+         ltemp = log(avg_temp),
+         ihs_patent_count = asinh(patent_count), # inverse hyperbolic sine transformation
+         log_patent_count = log(patent_count)) %>% # log transformation
+  filter(prio_year >= 2000 & prio_year < 2020)
+
+```
+
+## Samples
+
+```{r}
+us_all <- c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "North Dakota","Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina","South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington","West Virginia","Wisconsin","Wyoming", "District of Columbia", "Hawaii")
+
+us_q20 <- c("Alabama", "Arizona", "Arkansas","California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Missouri","Nebraska","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina","South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington","Wisconsin", "District of Columbia", "Hawaii")
+
+us_q25 <- c("Alabama", "Arizona", "California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Missouri","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina","South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington","Wisconsin", "District of Columbia", "Hawaii")
+
+us_q30 <- c( "Arizona","California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kentucky","Maryland","Massachusetts","Michigan","Minnesota","Missouri","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "Tennessee", "Texas", "Utah","Virginia", "Washington","Wisconsin", "District of Columbia")
+
+samples <- mget(c("us_all", "us_q20", "us_q25", "us_q30"))
+
+```
+
+# Run model
+
+## Functional forms
+```{r}
+controls <- c(" ~ lgdp + lpop + lgdp_sq") 
+
+dep_var <- c("log_patent_count") 
+
+base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
+
+base_forms
+```
+
+
+```{r}
+
+cl <- makeCluster(3)
+registerDoParallel(cl)
+
+models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
+  foreach(smpl = c("us_q30"), .combine = rbind) %:%
+  foreach(a = c(0,1), .combine = rbind) %:%
+  #foreach(b = c(10, 20, 30), .combine = rbind) %:%
+  foreach(p.value = c(0.01), .combine = rbind, .errorhandling = "remove") %dopar% {
+    dat <- dfx2 %>% filter(state_name %in% samples[[smpl]])
+      is <- isatpanel(
+            data = dat,
+            formula = as.formula(f),
+            index = c("state_name", "prio_year"),
+            effect = "twoways",
+            iis = FALSE,
+            fesis = TRUE,
+            ar = a,
+            t.pval = p.value,
+            max.block.size = 20
+            )
+          models = tibble(source = f, 
+                          state_sample = smpl,      
+                          year_range = paste0(min(dfx2$prio_year),":",max(dfx2$prio_year)),
+                          p_val = p.value, 
+                          is = list(is),
+                          iis = FALSE,
+                          b_size = 20,
+                          ar = a)
+  }
+
+stopCluster(cl)
+
+saveRDS(models, ".\\results\\models_main_allshares_NOIIS.RDS")
+
+```
+
+# Visualize data
+
+```{r, fig.height=8, fig.width=8}
+
+dfx <- read_csv("D:\\For_model\\final_df_regshare.csv", show_col_types = FALSE)
+
+box_plot_by_state <- df_ri_ok %>% 
+  group_by(state_name) %>% 
+  ggplot(aes(y = patent_count)) +
+  geom_boxplot(outlier.colour="red",
+               outlier.size=1) +
+  facet_wrap(~state_name, scales = "free_y") +
+  labs(x = "", y =  "Patent count") + 
+  theme_bw() + 
+  ggtitle("International US patent counts (Y02E class)", subtitle = "Distribution by State") 
+
+box_plot_by_state
+```
+
+
+
+```{r, fig.height=8, fig.width=8}
+
+stats_pat <- df_ri_ok %>% # create df with stats needed: mean, median, max by state
+  select(state_name, patent_count) %>% 
+  group_by(state_name) %>% 
+  summarise(median = median(patent_count, na.rm=TRUE), 
+            mean = mean(patent_count, na.rm=TRUE), 
+            q75 = quantile(patent_count, 0.75), 
+            max = max(patent_count, na.rm=TRUE))
+
+box <- stats_pat %>% 
+  ggplot(aes(x = mean))+ 
+  geom_boxplot(colour = "black") +
+  xlab("")+
+  ylab("") +
+  theme_bw()
+
+hist <- stats_pat %>% 
+  ggplot(aes(x = mean)) +
+  geom_histogram(bins = 51, fill = "navy", colour = "black") +
+  xlab("") +
+  ylab("") +
+  theme_bw()
+
+
+box_hist_dist <- grid.arrange(box,hist, ncol=1, nrow=2, respect = FALSE, widths = c(5), heights = c(6, 6), top = "Y02E class patent counts. State mean distribution ", bottom = "State mean patent counts")
+
+```
+
+## Analysis models
+
+```{r, fig.height=7, fig.width=7}
+
+situa <- readRDS(".\\model_spec\\results\\models_main_allshares.RDS")
+
+plot(situa$is[[1]]) #AR 0 WITH IIS
+
+situa$is[[1]]
+
+```
+
+
+## Analysis models no IIS
+
+```{r, fig.height=7, fig.width=7}
+
+situa_noiis <- readRDS(".\\model_spec\\results\\models_main_allshares_NOIIS.RDS")
+
+plot(situa_noiis$is[[1]])
+```
+
+

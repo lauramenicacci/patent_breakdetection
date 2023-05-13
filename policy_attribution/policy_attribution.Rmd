@@ -5,6 +5,7 @@ date: "2023-04-03"
 output: html_document
 ---
 
+# Merge csvs together to create policy dataset with relevant information
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
@@ -49,127 +50,213 @@ policy2$program_category <- ifelse(policy2$program_category == 1, "Financial Inc
 
 ```
 
-```{r}
-# create unique var for years by filling NAs with information from other columns and other datasets
-for (i in nrow(policy3))
-```
-
-# Data description
+## Filter dataset by states where a positive break was found
 
 ```{r}
-table(is.na(policy$created_ts))
-
-table(is.na(policy$start_date))
-
-
-
-
-```
-
-# Break attribution
-
-```{r}
-
 policy2 <- read_csv(".\\policy_dataset1.csv")
 
-breaks <- c("Wisconsin", "South Carolina", "District of Columbia","Kentucky",  "Tennessee", "Virginia")
-
+breaks <- c("Wisconsin", "South Carolina", "District of Columbia","Kentucky", "Tennessee", "Virginia")
 
 filt <- policy2 %>% 
   filter(state_name %in% breaks)
 
-write_csv(filt, ".\\filtered_policies_by_positive_break.csv")
+#write_csv(filt, ".\\filtered_policies_by_positive_break.csv")
 
 ```
-# New Mexico?
 
+## NA manual imputation
 ```{r}
+policy2 <- read_csv(".\\policy_dataset1.csv")
 
-breaks <- c("New Mexico")
+breaks <- c("Wisconsin", "South Carolina", "District of Columbia","Kentucky", "Tennessee", "Virginia")
 
-newme <- policy2 %>% 
+filt <- policy2 %>% 
   filter(state_name %in% breaks)
 
-write_csv(newme, ".\\newmex.csv")
+table(is.na(filt$start_year)) # check missingness in the dataset: out of 550 policies, 456 have missing value in year  
 
+imputed_dataset <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1)  # out of 550 policies, 350 have missing value in year 
 
+table(imputed_dataset$start_year == "NA")
 ```
 
+# Visualization
+```{r, fig.height=7, fig.width=7}
 
-
-# Description of the dataset
-
-```{r}
-#n policy per state
+policy2 <- read_csv(".\\policy_dataset1.csv")
 
 table(policy2$state_name)
 
-npol_state = as.data.frame(table(policy2$state_name))
+npol_state = as.data.frame(table(policy2$state_name)) # n policy per state
 
 
-npol_state %>%
+npol_state <- npol_state %>%
+  filter(!(Var1 %in% c("American Samoa", "Federated States of Micronesia", "Marshall Islands", "Palau", "Guam", "N. Mariana Islands", "Virgin Islands", "Puerto Rico"))) %>% 
   arrange(Freq) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
   mutate(name = fct_reorder(Var1, Freq)) %>%   
   ggplot(aes( x=name,y=Freq))+
     geom_segment( aes(xend=Var1, yend=0)) +
-    geom_point( size=1.7, color="orange") +
+    geom_point( size=1.7, color="#00846b") +
     coord_flip() +
     theme_bw() +
     theme(axis.text.y = element_text( hjust = 1, size=5,color="Black"))+
-    xlab("")+ ylab("Number of Policies") + ggtitle("NUMBER OF POLICIES PER STATE")
+    xlab("")+ ylab("Number of Policies") + ggtitle("")
+
+ggsave(".\\npol_state.png", plot = npol_state, device = "png", width = 5, height = 5)
+
 
 ```
 
+## POLICY TYPE
 ```{r}
-#POLICY TYPE
 df_policy_type = as.data.frame(table(policy2$policy_type))
- 
- 
- df_policy_type %>%
+
+all_policy_types <- df_policy_type %>%
   mutate(name = fct_reorder(Var1, Freq)) %>%
   ggplot( aes( x=name,y=Freq)) +
-    geom_bar(stat="identity", fill="#076fa2",  width=.8) +
+    geom_bar(stat="identity", fill="#00846b",  width=.8, alpha = 0.7) +
     coord_flip() +
     xlab("") + ylab('Number of Policies')+
-    theme_bw() + theme(axis.text.y = element_text( hjust = 1, size=6,color="Black")) + ggtitle("POLICIES TYPE")
+    theme_bw() + theme(axis.text.y = element_text( hjust = 1, size=6,color="Black")) + ggtitle("")
+
+ggsave(".\\all_policy_types.png", plot = all_policy_types, device = "png", width = 5, height = 5)
+
+
 ```
 
+## Policy category
 ```{r}
+
 df_policy_cat = as.data.frame(table(policy2$program_category))
  
- 
- ggplot(df_policy_cat, aes(x=Var1, y=Freq)) + 
-  geom_bar(stat = "identity", color = 'darkblue', fill = 'lightblue') +
-   xlab('Program Category') + ylab('Number of Policies') + theme_bw()
+prog_cat <- ggplot(df_policy_cat, aes(x=Var1, y=Freq)) + 
+  geom_bar(stat = "identity", color = '#005b84', fill = "#00846b", alpha = 0.7) +
+   xlab('Policy Category') + ylab('Number of Policies') + theme_bw()
 ```
 
-```{r}
-financial_df = as.data.frame(table(policy2[policy2$program_category == 'Financial Incentive', ]$policy_type))
+## Treemap: Policy type and policy category
+```{r, fig.height=7, fig.width=7}
 
 library(treemapify)
+library(viridis)
+library(cowplot)
 
+financial_df = as.data.frame(table(policy2[policy2$program_category == 'Financial Incentive', ]$policy_type))
 
- ggplot(financial_df, aes(area = Freq, fill = Freq, label = Var1)) +
+financial <- ggplot(financial_df, aes(area = Freq, fill = Freq, label = Var1)) +
   geom_treemap() +
   geom_treemap_text(colour = "white",
                     place = "centre",
-                    size = 15) +  ggtitle("Financial incentive policy types")
-```
+                    size = 15) +  ggtitle("Financial incentive policy types") +
+   scale_fill_viridis()
 
-
-```{r}
 regulatory_df = as.data.frame(table(policy2[policy2$program_category == 'Regulatory Policy', ]$policy_type))
 
-ggplot(regulatory_df, aes(area = Freq, fill = Freq, label = Var1)) +
+regulatory <- ggplot(regulatory_df, aes(area = Freq, fill = Freq, label = Var1)) +
   geom_treemap() +
   geom_treemap_text(colour = "white",
                     place = "centre",
-                    size = 15) +  ggtitle("REGULATORY POLICIES TYPES")
+                    size = 15) +  ggtitle("Regulatory policy types") +
+  scale_fill_viridis()
 
- 
+trees <- plot_grid(financial, regulatory, align = 'h', nrow = 2, ncol = 1)
+
+
+all <- plot_grid(trees, prog_cat, align = 'v', nrow = 1, ncol = 2, rel_widths = c(1.5, 1), rel_heights = c(1, 1.5))
+
+all
+
+ggsave(".\\policy_types.png", plot = all, device = "png", width = 12, height = 8)
+
+
 ```
-# policy attribution by neighboring state
 
+# Policy attribution
+```{r, fig.height=7, fig.width=17}
+library(readxl)
+library(pals)
+
+pols <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 3) %>% 
+  filter(year > 2000) %>% 
+  filter(case_when(state_name == "District of Columbia" ~ year > 2009 & year < 2013, 
+                   state_name == "South Carolina" ~ year > 2005 & year < 2011, 
+                   state_name == "Wisconsin" ~ year > 2006, 
+                   state_name == "Kentucky" ~ year > 2005 & year < 2009, 
+                   state_name == "Tennessee" ~ year < 2011, 
+                   state_name == "Virginia" ~ year < 2014))
+
+
+data_vline <-data.frame(state_name = unique(pols$state_name),  # Create data for lines
+                         vline = c(2011, 2007, 2008, 2005, 2005, 2014))
+
+pols$year <- as.numeric(pols$year)
+
+p <- pols %>% 
+  ggplot(aes(x = year, fill = policy_type)) +
+  geom_bar() + 
+  facet_wrap(~state_name) +
+  theme_cowplot() +
+  scale_fill_manual(values=as.vector(alphabet2(26))) +
+  xlab("") + ylab("") +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(), 
+        plot.background = element_blank(), 
+        legend.background = element_blank(), 
+        strip.background = element_rect(colour = "black", fill = "white"))
+
+policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red")
+
+final_policy_breaks_1 <- policy_breaks + panel_border()
+
+final_policy_breaks_1
+
+#ggsave(".\\policy_breaks.png", plot = final_policy_breaks, device = "png", width = 17, height = 10)
+
+```
+
+# Version with non-selected policies
+```{r, fig.height=7, fig.width=17}
+pols2 <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1) %>% 
+  #filter(start_year > 2000) %>% 
+  filter(!(start_year == "NA")) %>% 
+  filter(case_when(state_name == "District of Columbia" ~ start_year > 2009 & start_year < 2013, 
+                   state_name == "South Carolina" ~ start_year > 2005 & start_year < 2011, 
+                   state_name == "Wisconsin" ~ start_year > 2006, 
+                   state_name == "Kentucky" ~ start_year > 2005 & start_year < 2009, 
+                   state_name == "Tennessee" ~ start_year > 1999 & start_year < 2011, 
+                   state_name == "Virginia" ~ start_year > 1996 & start_year < 2014))
+
+
+pols2$start_year <- as.numeric(pols2$start_year)
+data_vline <-data.frame(state_name = unique(pols2$state_name),  # Create data for lines
+                         vline = c(2011, 2007, 2008, 2005, 2005, 2014))
+
+p <- pols2 %>% 
+  ggplot(aes(x = start_year, fill = policy_type)) +
+  geom_bar() + 
+  facet_wrap(~state_name, scales = "free") + 
+  theme_cowplot() +
+  scale_fill_manual(values=as.vector(alphabet2(26))) +
+  xlab("") + ylab("") +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(), 
+        plot.background = element_blank(), 
+        legend.background = element_blank(), 
+        strip.background = element_rect(colour = "black", fill = "white"))
+
+policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red")
+
+final_policy_breaks <- policy_breaks + panel_border()
+
+final_policy_breaks
+
+ggsave(".\\policy_breaks.png", plot = final_policy_breaks, device = "png", width = 17, height = 10)
+
+```
+
+
+
+# Policy attribution by neighboring state
 ```{r}
 tn_neigh <- c("Missouri", "Arkansas", "Mississippi", "Alabama", "Georgia", "North Carolina", "Virginia", "Kentucky")
 
@@ -181,12 +268,9 @@ dc_neigh <- c("Virginia", "Delaware", "West Virginia", "Pennysilvania")
 
 wi_neigh <- c("Michigan", "Minnesota")
 
-policy2 %>% 
-  filter(state_name %in% wi_neigh) %>% 
-  ggplot(aes(x = start_year, fill = policy_type)) +
-  geom_bar() +
-  theme(legend.position = "right")
-  
-
+#policy2 %>% 
+#  filter(state_name %in% wi_neigh) %>% 
+#  ggplot(aes(x = start_year, fill = policy_type)) +
+#  geom_bar() +
+#  theme(legend.position = "right")
 ```
-

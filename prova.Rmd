@@ -1,0 +1,646 @@
+---
+title: "updated_package_check"
+author: "Laura Menicacci"
+date: "2023-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(gets)
+library(getspanel)
+library(here)
+library(doParallel)
+library(readxl)
+library(gdata)
+library(cowplot)
+
+mod <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage.RDS")
+
+mod_noIIS <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage_noIIS.RDS")
+```
+
+
+```{r, fig.height=7, fig.width=7}
+
+
+#mod_noIIS$is[[1]]
+
+mod$is[[3]]
+
+p_iis <- plot_counterfactual(mod$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), 
+                                                         legend.background = element_blank(), 
+                                                         text=element_text(size=10,  family="serif"))
+
+p_noiis <- plot_counterfactual(mod_noIIS$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), 
+                                                         legend.background = element_blank(), 
+                                                         text=element_text(size=10,  family="serif"))
+
+main_counterfactuals <- plot_grid(p_iis, p_noiis, ncol = 1, labels = c("A. Main specification with IIS", "B. Main specification without IIS"), label_fontfamily = "serif", label_fontface = "plain", scale = 0.9)
+
+#plots <- align_plots(p3, p1, align = 'v', axis = 'l')
+
+main_counterfactuals
+
+ggsave(".\\figures\\main_counterfactuals.png", plot = main_counterfactuals, device = "png", width = 10, height = 16)
+
+```
+
+
+```{r}
+plot_counterfactual(mod$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), 
+                                                         legend.background = element_blank(), 
+                                                         text=element_text(size=10,  family="serif"))
+```
+
+```{r}
+break_uncertainty(mod_noIIS$is[[3]])
+```
+```{r}
+mod_noIIS$is[[1]]
+
+```
+```{r}
+identify_indicator_timings <- function(object){
+
+  varying_vars <- names(object)[!names(object)%in% c("id","time","y","fitted")]
+
+  object_l <- reshape(object,
+                  varying = varying_vars,
+                  idvar = c("id","time"),
+                  v.names = "value",
+                  timevar = "name",
+                  times = varying_vars,
+                  direction = "long")
+  # Impulses and Steps
+  impulses <- object_l[grepl("iis",object_l$name) & object_l$value == 1,]
+  steps <- object_l[grepl("sis",object_l$name) & object_l$value == 1 & !grepl("fesis", object_l$name) & !grepl("csis", object_l$name),]
+  if(nrow(steps)>0){
+    steps <- aggregate(steps$time, by = list(id = steps$id, name = steps$name), FUN = min)
+    names(steps)[grep("x",names(steps))] <- "time"
+    steps$value <- 1
+  }
+
+  # FESIS
+  if(any(grepl("^fesis",names(object)))){
+    fesis_wide <- object[,grepl("^fesis", names(object)), drop = FALSE]
+    fesis_l <- reshape(fesis_wide,
+                       direction = "long",
+                       varying = names(fesis_wide),
+                       times = names(fesis_wide),
+                       v.names = "value",
+                       timevar = "name")
+
+
+    split_list <- strsplit(x = fesis_l$name, split = "\\.")
+
+    fesis_l$id <- unlist(lapply(split_list, `[[`, 1))
+    fesis_l$id <- gsub("fesis","",fesis_l$id)
+    fesis_l$time <- unlist(lapply(split_list, `[[`, 2))
+    fesis_l$time <- as.numeric(fesis_l$time)
+
+    fesis_l <- fesis_l[c("id","time","name")]
+
+    fesis <- fesis_l[!duplicated(fesis_l),]
+
+  } else {fesis <- NULL}
+
+  # CFESIS
+  if(any(grepl("cfesis",names(object)))){
+
+    cfesis_wide <- object[,grepl("cfesis", names(object)), drop = FALSE]
+    cfesis_l <- reshape(cfesis_wide,
+                        direction = "long",
+                        varying = names(cfesis_wide),
+                        times = names(cfesis_wide),
+                        v.names = "value",
+                        timevar = "name")
+
+
+    split_list <- strsplit(x = cfesis_l$name, split = "\\.")
+
+    cfesis_l$name <- unlist(lapply(split_list, `[[`, 1))
+
+    cfesis_l$id <- unlist(lapply(split_list, `[[`, 2))
+    cfesis_l$id <- gsub("cfesis","",cfesis_l$id)
+
+    cfesis_l$time <- unlist(lapply(split_list, `[[`, 3))
+    cfesis_l$time <- as.numeric(cfesis_l$time)
+
+    cfesis_l <- cfesis_l[c("id","time","name")]
+
+    cfesis <- cfesis_l[!duplicated(cfesis_l),]
+
+    # object %>%
+    #   select(contains("cfesis")) %>%
+    #   pivot_longer(cols = everything()) %>%
+    #   separate(col = "name",sep = "\\.",into = c("variable","id","time")) %>%
+    #   mutate(id = gsub("cfesis","",id),
+    #                 time = as.numeric(time)) %>%
+    #   select(-"value") %>%
+    #   distinct(across(c("variable", "time", "id"))) -> cfesis
+  } else {cfesis <- NULL}
+
+  # CSIS
+
+  if(any(grepl("csis",names(object)))){
+
+    csis_wide <- object[,grepl("csis", names(object)), drop = FALSE]
+    csis_l <- reshape(csis_wide,
+                      direction = "long",
+                      varying = names(csis_wide),
+                      times = names(csis_wide),
+                      v.names = "value",
+                      timevar = "name")
+
+    split_list <- strsplit(x = csis_l$name, split = "\\.")
+
+    csis_l$name <- unlist(lapply(split_list, `[[`, 1))
+    csis_l$time <- unlist(lapply(split_list, `[[`, 2))
+    csis_l$time <- gsub("csis","",csis_l$time)
+    csis_l$time <- as.numeric(csis_l$time)
+
+    csis_l <- csis_l[c("time","name")]
+
+    csis <- csis_l[!duplicated(csis_l),]
+
+    # object %>%
+    #   select(contains("cfesis")) %>%
+    #   pivot_longer(cols = everything()) %>%
+    #   separate(col = "name",sep = "\\.",into = c("variable","id","time")) %>%
+    #   mutate(id = gsub("cfesis","",id),
+    #                 time = as.numeric(time)) %>%
+    #   select(-"value") %>%
+    #   distinct(across(c("variable", "time", "id"))) -> cfesis
+  } else {csis <- NULL}
+
+
+  output <- list()
+  output$impulses <- impulses
+  output$steps <- steps
+  output$csis <- csis
+  output$fesis <- fesis
+  output$cfesis <- cfesis
+
+  return(output)
+
+}
+
+plot_isatpanel_laura <- function(x, max.id.facet = 16, facet.scales = "free", title = NULL, zero_line = FALSE, ...){
+
+  #interactive = TRUE, currently not implemented. Roxygen: Logical (TRUE or FALSE). Default is TRUE. When True, plot will be passed to plotly using ggplotly.
+
+
+  df <- x$estimateddata
+  indicators <- x$isatpanel.result$aux$mX
+  indicators <- indicators[,!colnames(indicators) %in% names(df)]
+  df <- cbind(df,indicators)
+
+  if(is.null(x$isatpanel.result$fit)){
+    fitted <- as.numeric(x$isatpanel.result$mean.fit)
+  } else {
+    fitted <- as.numeric(x$isatpanel.result$fit)
+  }
+
+  df_identified <- identify_indicator_timings(df)
+
+  sub_title <- NULL
+
+  ggplot(df, aes_(
+    x = ~time,
+    y = ~fitted,
+    group = ~id
+  )) -> g
+
+
+  # Impulses
+  #if(nrow(df_identified$impulses)>0){
+  #  g = g + geom_vline(data = df_identified$impulses,aes_(xintercept = ~time,color="grey"))
+  #}
+  ## Steps
+  if(nrow(df_identified$steps)>0){
+    g = g + geom_vline(data = df_identified$steps, aes_(xintercept = ~time,color="purple"))
+  }
+  # fesis
+  #if(!is.null(df_identified$fesis)){
+  #  g = g + geom_vline(data = df_identified$fesis, aes_(xintercept = ~time,color="red"))
+  #}
+
+  # cfesis
+  if(!is.null(df_identified$cfesis)){
+    g = g + geom_vline(data = df_identified$cfesis, aes_(xintercept = ~time, color="darkgreen", linetype = ~name))
+  }
+
+  # csis
+  if(!is.null(df_identified$csis)){
+    g = g + geom_vline(data = df_identified$csis, aes_(xintercept = ~time, color="orange", linetype = ~name))
+  }
+
+  if(zero_line){g = g + geom_hline(aes(yintercept = 0))}
+
+  g +
+    geom_line(aes_(y = ~y,color="black"), size = 0.7) +
+    geom_line(aes(color = "blue"),linetype = 1, size = 0.5) +
+
+
+
+    # Faceting
+    facet_wrap("id", scales = facet.scales) +
+
+    scale_color_identity(name = NULL,
+                         breaks = c("black", "blue", "grey", "purple", "red","darkgreen", "orange"),
+                         labels = c("y","Fitted","IIS","JSIS","FESIS","CFESIS", "CSIS"),
+                         guide = "legend")+
+
+    scale_linetype(name = "Variable") +
+
+  theme(#legend.position = "none",
+    strip.background = element_blank(),
+    legend.key = element_rect(fill = NA),
+    panel.border = element_rect(colour = "grey",fill = NA),
+    panel.background = element_blank()#,
+    #panel.grid.major.y = element_line(colour = "grey",size = 0.1)
+  ) +
+
+    labs(title = title,subtitle = sub_title, y = NULL, x = NULL) -> plotoutput
+
+  # # cfesis
+  # if(!is.null(cfesis)){
+  #   g = g + geom_vline(data = cfesis, aes_(xintercept = ~time, linetype = ~variable, color="green"))
+  # }#
+  # # browser
+  # #   if(interactive){
+  # #     plotoutput <- plotly::ggplotly(p = plotoutput)
+  # #   }
+  #
+  return(plotoutput)
+}
+```
+
+
+```{r}
+plot_counterfactual <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
+
+  df <- x$estimateddata
+  indicators <- x$isatpanel.result$aux$mX
+  indicators <- indicators[,!colnames(indicators) %in% names(df)]
+  df <- cbind(df,indicators)
+
+  df_ident_fesis <- identify_indicator_timings(df)$fesis
+
+  if(is.null(x$isatpanel.result$fit)){
+    fitted <- as.numeric(x$isatpanel.result$mean.fit)
+  } else {
+    fitted <- as.numeric(x$isatpanel.result$fit)
+  }
+
+  max_times <- aggregate(x$estimateddata$time,by = list(x$estimateddata$id),FUN = function(x){max(x, na.rm = TRUE)})
+  names(max_times) <- c("id","maxtime")
+
+  df_ident <- break_uncertainty(x)
+  df_ident <- merge(df_ident, max_times, by = "id")
+  df_ident$origtime <- df_ident$time
+
+  # make sure the preceding observation collapses on the last observation
+  df_ident_start <- df_ident
+  df_ident_start$time <- df_ident_start$time - 1
+  df_ident_start$coef <- 0
+  df_ident_start$sd <- 0
+  df_ident_start$tci <- NA
+
+  df_ident_overall <- rbind(df_ident_start, df_ident)
+  for(i in 1:plus_t){
+    intermed <- df_ident
+    intermed$time <- intermed$time + i
+    intermed$time <- ifelse(intermed$time > intermed$maxtime, intermed$maxtime, intermed$time)
+    df_ident_overall <- rbind(df_ident_overall, intermed)
+  }
+  df_ident_overall <- df_ident_overall[order(df_ident_overall$name, df_ident_overall$time),]
+  df_ident_overall <- df_ident_overall[!duplicated(df_ident_overall),]
+
+
+  effects <- merge(x$estimateddata, df_ident_overall, by = c("id","time"), all.x = TRUE)
+  # time-id pairs can also be duplicated if there are multiple rows at a time
+  # this is why effects can have more rows than the original data (and we need to use merge in the row below)
+  effects <- merge(effects,data.frame(x$estimateddata[,c("id","time")], fitted), by = c("id","time"))
+
+  effects$cf <-  (effects$coef * (-1)) +  effects$fitted
+  effects$cf_upr <- ((effects$coef + (1.96 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_lwr <- ((effects$coef - (1.96 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_upr99 <- ((effects$coef + (2.57 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_lwr99 <- ((effects$coef - (2.57 * effects$sd)) * (-1)) +  effects$fitted
+
+  effects$start_rect <- effects$origtime - effects$tci
+  effects$end_rect <- effects$origtime + effects$tci
+
+  effects$cf_upr[is.na(effects$cf_upr)] <- effects$fitted[is.na(effects$cf_upr)]
+  effects$cf_lwr[is.na(effects$cf_lwr)] <- effects$fitted[is.na(effects$cf_lwr)]
+
+  sub_title <- NULL
+
+
+  ggplot(df, aes_(
+    x = ~time,
+    y = ~fitted,
+    group = ~id
+  )) -> g
+
+
+
+  if(zero_line){g = g + geom_hline(aes(yintercept = 0))}
+
+  g +
+    geom_line(aes_(y = ~y, color = "black"), size = 0.7) +
+
+    geom_rect(data = effects, aes_(xmin = ~start_rect, xmax = ~end_rect, ymin = -Inf, ymax = Inf, group = ~name),fill = "grey",alpha = 0.1, na.rm = TRUE) +
+
+    geom_line(aes(color = "blue"),linetype = 1, size = 0.5) +
+
+    # fesis
+    geom_vline(data = df_ident_fesis, aes_(xintercept = ~time,color="red")) +
+
+    geom_ribbon(data = effects, aes_(ymin = ~cf_lwr, ymax = ~cf_upr, fill = "red", group = ~name), alpha = 0.5, na.rm = FALSE) +
+
+    geom_line(data = effects, aes_(y = ~cf, color = "red", group = ~name), na.rm = TRUE) +
+
+    # Faceting
+    facet_wrap("id", scales = facet.scales) +
+
+    scale_color_identity(name = NULL,
+                         breaks = c("black", "blue", "grey", "purple", "red","darkgreen", "orange"),
+                         labels = c("y","Fitted","IIS","SIS","FESIS","CFESIS", "CSIS"),
+                         guide = "legend") +
+
+    scale_linetype(name = "Variable") +
+    guides(fill = "none") +
+
+    theme(
+      strip.background = element_blank(),
+      legend.key = element_rect(fill = NA),
+      panel.border = element_rect(colour = "grey",fill = NA),
+      panel.background = element_blank()#,
+    ) +
+
+    labs(title = title, subtitle = sub_title, y = NULL, x = NULL) -> plotoutput
+
+  return(plotoutput)
+
+}
+```
+
+# Modify function from getspanel to plot only countries with breaks & only countries with positive breaks
+```{r}
+identify_effects <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
+
+  df <- x$estimateddata
+  indicators <- x$isatpanel.result$aux$mX
+  indicators <- indicators[,!colnames(indicators) %in% names(df)]
+  df <- cbind(df,indicators)
+
+  df_ident_fesis <- identify_indicator_timings(df)$fesis
+
+  if(is.null(x$isatpanel.result$fit)){
+    fitted <- as.numeric(x$isatpanel.result$mean.fit)
+  } else {
+    fitted <- as.numeric(x$isatpanel.result$fit)
+  }
+
+  max_times <- aggregate(x$estimateddata$time,by = list(x$estimateddata$id),FUN = function(x){max(x, na.rm = TRUE)})
+  names(max_times) <- c("id","maxtime")
+
+  df_ident <- break_uncertainty(x)
+  df_ident <- merge(df_ident, max_times, by = "id")
+  df_ident$origtime <- df_ident$time
+
+  # make sure the preceding observation collapses on the last observation
+  df_ident_start <- df_ident
+  df_ident_start$time <- df_ident_start$time - 1
+  df_ident_start$coef <- 0
+  df_ident_start$sd <- 0
+  df_ident_start$tci <- NA
+
+  df_ident_overall <- rbind(df_ident_start, df_ident)
+  for(i in 1:plus_t){
+    intermed <- df_ident
+    intermed$time <- intermed$time + i
+    intermed$time <- ifelse(intermed$time > intermed$maxtime, intermed$maxtime, intermed$time)
+    df_ident_overall <- rbind(df_ident_overall, intermed)
+  }
+  df_ident_overall <- df_ident_overall[order(df_ident_overall$name, df_ident_overall$time),]
+  df_ident_overall <- df_ident_overall[!duplicated(df_ident_overall),]
+
+
+  effects <- merge(x$estimateddata, df_ident_overall, by = c("id","time"), all.x = TRUE)
+  # time-id pairs can also be duplicated if there are multiple rows at a time
+  # this is why effects can have more rows than the original data (and we need to use merge in the row below)
+  effects <- merge(effects,data.frame(x$estimateddata[,c("id","time")], fitted), by = c("id","time"))
+
+  effects$cf <-  (effects$coef * (-1)) +  effects$fitted
+  effects$cf_upr <- ((effects$coef + (1.96 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_lwr <- ((effects$coef - (1.96 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_upr99 <- ((effects$coef + (2.57 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_lwr99 <- ((effects$coef - (2.57 * effects$sd)) * (-1)) +  effects$fitted
+
+  effects$start_rect <- effects$origtime - effects$tci
+  effects$end_rect <- effects$origtime + effects$tci
+
+  effects$cf_upr[is.na(effects$cf_upr)] <- effects$fitted[is.na(effects$cf_upr)]
+  effects$cf_lwr[is.na(effects$cf_lwr)] <- effects$fitted[is.na(effects$cf_lwr)]
+
+  return(effects)
+}
+  
+plot_counterfactual_laura_noiis <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
+
+  df <- x$estimateddata
+  indicators <- x$isatpanel.result$aux$mX
+  indicators <- indicators[,!colnames(indicators) %in% names(df)]
+  df <- cbind(df,indicators)
+
+  df_ident_fesis <- identify_indicator_timings(df)$fesis
+
+  if(is.null(x$isatpanel.result$fit)){
+    fitted <- as.numeric(x$isatpanel.result$mean.fit)
+  } else {
+    fitted <- as.numeric(x$isatpanel.result$fit)
+  }
+
+  max_times <- aggregate(x$estimateddata$time,by = list(x$estimateddata$id),FUN = function(x){max(x, na.rm = TRUE)})
+  names(max_times) <- c("id","maxtime")
+
+  df_ident <- break_uncertainty(x)
+  df_ident <- merge(df_ident, max_times, by = "id")
+  df_ident$origtime <- df_ident$time
+
+  # make sure the preceding observation collapses on the last observation
+  df_ident_start <- df_ident
+  df_ident_start$time <- df_ident_start$time - 1
+  df_ident_start$coef <- 0
+  df_ident_start$sd <- 0
+  df_ident_start$tci <- NA
+
+  df_ident_overall <- rbind(df_ident_start, df_ident)
+  for(i in 1:plus_t){
+    intermed <- df_ident
+    intermed$time <- intermed$time + i
+    intermed$time <- ifelse(intermed$time > intermed$maxtime, intermed$maxtime, intermed$time)
+    df_ident_overall <- rbind(df_ident_overall, intermed)
+  }
+  df_ident_overall <- df_ident_overall[order(df_ident_overall$name, df_ident_overall$time),]
+  df_ident_overall <- df_ident_overall[!duplicated(df_ident_overall),]
+
+
+  effects <- merge(x$estimateddata, df_ident_overall, by = c("id","time"), all.x = TRUE)
+  # time-id pairs can also be duplicated if there are multiple rows at a time
+  # this is why effects can have more rows than the original data (and we need to use merge in the row below)
+  effects <- merge(effects,data.frame(x$estimateddata[,c("id","time")], fitted), by = c("id","time"))
+
+  effects$cf <-  (effects$coef * (-1)) +  effects$fitted
+  effects$cf_upr <- ((effects$coef + (1.96 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_lwr <- ((effects$coef - (1.96 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_upr99 <- ((effects$coef + (2.57 * effects$sd)) * (-1)) +  effects$fitted
+  effects$cf_lwr99 <- ((effects$coef - (2.57 * effects$sd)) * (-1)) +  effects$fitted
+
+  effects$start_rect <- effects$origtime - effects$tci
+  effects$end_rect <- effects$origtime + effects$tci
+
+  effects$cf_upr[is.na(effects$cf_upr)] <- effects$fitted[is.na(effects$cf_upr)]
+  effects$cf_lwr[is.na(effects$cf_lwr)] <- effects$fitted[is.na(effects$cf_lwr)]
+  
+  effects_filt <- effects %>% filter(id %in% c("Wisconsin", "SouthCarolina", "Kentucky", "DistrictofColumbia", "Tennessee", "Virginia")) %>% mutate(coef = case_when(coef < 0 ~ coef == NA),
+         start_rect = case_when(coef < 0 ~ start_rect == NA), 
+         end_rect = case_when(coef < 0 ~ end_rect == NA), 
+         cf_lwr = case_when(coef < 0 ~ cf_lwr == NA),
+         cf_upr = case_when(coef < 0 ~ cf_upr == NA),
+         cf = case_when(coef < 0 ~ cf == NA))
+  
+  #effects_vline <- effects_filt %>% filter(coef == 0.0000000)
+
+  sub_title <- NULL
+  
+  #df <- df %>% filter(id %in% c("Wisconsin", "South Carolina"))
+
+  ggplot(effects_filt, aes_(
+    x = ~time,
+    y = ~fitted,
+    group = ~id
+  )) -> g
+
+
+
+  if(zero_line){g = g + geom_hline(aes(yintercept = 0))}
+
+  g +
+    geom_line(aes_(y = ~y, color = "black"), size = 0.7) +
+
+    geom_rect(data = effects_filt, aes_(xmin = ~start_rect, xmax = ~end_rect, ymin = -Inf, ymax = Inf, group = ~name),fill = "grey",alpha = 0.1, na.rm = TRUE) +
+
+    geom_line(aes(color = "blue"),linetype = 1, size = 0.5) +
+
+    # fesis
+    geom_vline(data = df_ident_fesis, aes_(xintercept = ~time,color="red")) +
+
+    geom_ribbon(data = effects_filt, aes_(ymin = ~cf_lwr, ymax = ~cf_upr, fill = "red", group = ~name), alpha = 0.5, na.rm = FALSE) +
+
+    geom_line(data = effects_filt, aes_(y = ~cf, color = "red", group = ~name), na.rm = TRUE) +
+
+    # Faceting
+    facet_wrap("id", scales = facet.scales) +
+
+    scale_color_identity(name = NULL,
+                         breaks = c("black", "blue", "grey", "purple", "red","darkgreen", "orange"),
+                         labels = c("y","Fitted","IIS","SIS","FESIS","CFESIS", "CSIS"),
+                         guide = "legend") +
+
+    scale_linetype(name = "Variable") +
+    guides(fill = "none") +
+
+    theme(
+      strip.background = element_blank(),
+      legend.key = element_rect(fill = NA),
+      panel.border = element_rect(colour = "grey",fill = NA),
+      panel.background = element_blank()#,
+    ) +
+
+    labs(title = title, subtitle = sub_title, y = NULL, x = NULL) -> plotoutput
+
+  return(plotoutput)
+
+}
+
+#another_function <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
+# df <- x$estimateddata
+#  indicators <- x$isatpanel.result$aux$mX
+#  indicators <- indicators[,!colnames(indicators) %in% names(df)]
+#  df <- cbind(df,indicators)
+#
+#  df_ident_fesis <- identify_indicator_timings(df)$fesis
+#  
+#  return(df_ident_fesis)
+#  
+#}
+#
+#another_function(mod$is[[1]])
+
+```
+
+
+```{r, fig.height=3, fig.width=7}
+#ts_fit_mod <- plot_isatpanel_laura(mod$is[[1]]) # removed fesis and iis just to show y and fitted
+
+#ggsave(".\\figures\\ts_fit_main_mod.png", plot = ts_fit_mod, device = "png", width = 12, height = 12)
+#plot_isatpanel_laura(mod_noIIS$is[[1]])
+
+res <- identify_effects(mod$is[[1]])
+
+iis_res <- plot_counterfactual_laura(mod$is[[1]])
+
+noiis <- plot_counterfactual_laura_noiis(mod_noIIS$is[[1]])
+
+noiis
+
+ggsave(".\\figures\\breaks_temporary.png", plot = noiis, device = "png", width = 7, height = 3)
+
+```
+
+```{r, fig.height=3, fig.width=7}
+iis_res
+```
+
+# 
+```{r}
+changes <- df2 %>% 
+  select(state_name, prio_year, patent_count, log_patent_count) %>% 
+  filter(state_name %in% c("Wisconsin", "South Carolina", "Kentucky", "District of Columbia", "Tennessee", "Virginia")) %>% 
+  filter(prio_year %in% c(2000,2019)) %>% 
+  group_by(state_name) %>% 
+  mutate(change_abs = last(patent_count)-first(patent_count),               ## absolute change, or the difference in emissions between t2 and t1
+         change_rel = change_abs/first(patent_count),              ## relative change, or the ratio of absolute change to emissions in t1
+         change_avg_annual = ((last(patent_count)/first(patent_count))^(1/(2019-2000))-1)) ## average annual change using the CGAR formula
+
+changes %>% 
+  filter(prio_year==2019) %>% ## we dont need all the duplicated rows now
+  mutate(change_rel=change_rel*100) %>% ## % values for the relative change
+  mutate(change_avg_annual=change_avg_annual*100) ## and % for the average annual change
+```
+# plot grid
+```{r}
+getspanel::plot_grid(mod_noIIS$is[[1]])
+```
+# 
+```{r}
+
+res %>% 
+  mutate(coef = case_when(coef < 0 ~ coef == NA),
+         start_rect = case_when(coef < 0 ~ start_rect == NA), 
+         end_rect = case_when(coef < 0 ~ end_rect == NA), 
+         cf_lwr = case_when(coef < 0 ~ cf_lwr == NA),
+         cf_upr = case_when(coef < 0 ~ cf_upr == NA),
+         cf = case_when(coef < 0 ~ cf == NA))
+
+#res
+
+```
+

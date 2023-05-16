@@ -4,13 +4,23 @@ author: "Laura Menicacci"
 date: "2023-04-03"
 output: html_document
 ---
-
-# Merge csvs together to create policy dataset with relevant information
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# Libraries
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(lubridate)
 
+library(readxl)
+library(pals)
+
+library(treemapify)
+library(viridis)
+library(cowplot)
+
+```
+
+# Merge csvs together to create policy dataset with relevant information
+```{r setup, include=FALSE}
 policy <- read_csv("D:\\policy_database\\program_new.csv") %>% 
   select(!c(administrator, fromSir, additional_technologies))
 
@@ -83,15 +93,15 @@ table(imputed_dataset$start_year == "NA")
 # Visualization
 ```{r, fig.height=7, fig.width=7}
 
-policy2 <- read_csv(".\\policy_dataset1.csv")
+policy2 <- read_csv(".\\policy_dataset1.csv", show_col_types = FALSE) %>% 
+  filter(!(state_name %in% c("American Samoa", "Federated States of Micronesia", "Marshall Islands", "Palau", "Guam", "N. Mariana Islands", "Virgin Islands", "Puerto Rico")))
 
-table(policy2$state_name)
+#table(policy2$state_name)
 
 npol_state = as.data.frame(table(policy2$state_name)) # n policy per state
 
 
 npol_state <- npol_state %>%
-  filter(!(Var1 %in% c("American Samoa", "Federated States of Micronesia", "Marshall Islands", "Palau", "Guam", "N. Mariana Islands", "Virgin Islands", "Puerto Rico"))) %>% 
   arrange(Freq) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
   mutate(name = fct_reorder(Var1, Freq)) %>%   
   ggplot(aes( x=name,y=Freq))+
@@ -137,29 +147,27 @@ prog_cat <- ggplot(df_policy_cat, aes(x=Var1, y=Freq)) +
 ## Treemap: Policy type and policy category
 ```{r, fig.height=7, fig.width=7}
 
-library(treemapify)
-library(viridis)
-library(cowplot)
-
 financial_df = as.data.frame(table(policy2[policy2$program_category == 'Financial Incentive', ]$policy_type))
 
 financial <- ggplot(financial_df, aes(area = Freq, fill = Freq, label = Var1)) +
   geom_treemap() +
-  geom_treemap_text(colour = "white",
+  geom_treemap_text(colour = "black",
                     place = "centre",
-                    size = 15) +  ggtitle("Financial incentive policy types") +
+                    size = 15) +  ggtitle("Financial incentive") +
    scale_fill_viridis()
 
 regulatory_df = as.data.frame(table(policy2[policy2$program_category == 'Regulatory Policy', ]$policy_type))
 
 regulatory <- ggplot(regulatory_df, aes(area = Freq, fill = Freq, label = Var1)) +
   geom_treemap() +
-  geom_treemap_text(colour = "white",
+  geom_treemap_text(colour = "black",
                     place = "centre",
-                    size = 15) +  ggtitle("Regulatory policy types") +
+                    size = 15) +  ggtitle("Regulatory policy") +
   scale_fill_viridis()
 
 trees <- plot_grid(financial, regulatory, align = 'h', nrow = 2, ncol = 1)
+
+trees
 
 
 all <- plot_grid(trees, prog_cat, align = 'v', nrow = 1, ncol = 2, rel_widths = c(1.5, 1), rel_heights = c(1, 1.5))
@@ -168,22 +176,23 @@ all
 
 ggsave(".\\policy_types.png", plot = all, device = "png", width = 12, height = 8)
 
+ggsave(".\\treemaps.png", plot = trees, device = "png", width = 12, height = 8)
+
+
 
 ```
 
-# Policy attribution
+# Policy attribution - selected policies
 ```{r, fig.height=7, fig.width=17}
-library(readxl)
-library(pals)
 
 pols <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 3) %>% 
-  filter(year > 2000) %>% 
+  #filter(year > 2000) %>% 
   filter(case_when(state_name == "District of Columbia" ~ year > 2009 & year < 2013, 
                    state_name == "South Carolina" ~ year > 2005 & year < 2011, 
                    state_name == "Wisconsin" ~ year > 2006, 
                    state_name == "Kentucky" ~ year > 2005 & year < 2009, 
-                   state_name == "Tennessee" ~ year < 2011, 
-                   state_name == "Virginia" ~ year < 2014))
+                   state_name == "Tennessee" ~ year > 1999 & year < 2011, 
+                   state_name == "Virginia" ~ year > 1996 & year < 2014))
 
 
 data_vline <-data.frame(state_name = unique(pols$state_name),  # Create data for lines
@@ -196,7 +205,7 @@ p <- pols %>%
   geom_bar() + 
   facet_wrap(~state_name) +
   theme_cowplot() +
-  scale_fill_manual(values=as.vector(alphabet2(26))) +
+  scale_fill_manual(values=as.vector(alphabet(26))) +
   xlab("") + ylab("") +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
@@ -234,9 +243,10 @@ data_vline <-data.frame(state_name = unique(pols2$state_name),  # Create data fo
 p <- pols2 %>% 
   ggplot(aes(x = start_year, fill = policy_type)) +
   geom_bar() + 
-  facet_wrap(~state_name, scales = "free") + 
+  facet_wrap(~state_name) + 
   theme_cowplot() +
-  scale_fill_manual(values=as.vector(alphabet2(26))) +
+  scale_fill_manual(values=as.vector(alphabet(26))) +
+  scale_y_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8)) +
   xlab("") + ylab("") +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
@@ -250,8 +260,191 @@ final_policy_breaks <- policy_breaks + panel_border()
 
 final_policy_breaks
 
+#TO ADD: geom_rect(data = effects, aes_(xmin = ~start_rect, xmax = ~end_rect, ymin = -Inf, ymax = Inf, group = ~name),fill = "grey",alpha = 0.1, na.rm = TRUE)
+
 ggsave(".\\policy_breaks.png", plot = final_policy_breaks, device = "png", width = 17, height = 10)
 
+```
+
+# Version with aggregated policy types
+```{r, fig.height=7, fig.width=17}
+
+Funds_to_renewable_energy <- c("Public Benefits Fund", "Grant Program")
+
+Tax_incentives <- c("Property Tax Incentive", "Sales Tax Incentive", "Corporate Tax Credit", "Personal Tax Deduction", "Personal Tax Credit")
+
+Consumer_subsidy <- c("Rebate Program", "Loan Program", "PACE Financing", "Performance-Based Incentive")
+
+Regulatory_policies_for_renewable_energy_diffusion <- c("Building Energy Code", "Green Power Purchasing", "Net Metering", "Interconnection", "Mandatory Utility Green Power Option")
+
+Regulatory_policies_renewable_energy_access <- c("Solar/Wind Access Policy", "Solar/Wind Permitting Standards")
+
+Renewable_energy_and_or_energy_efficiency_standards <- c("Renewables Portfolio Standard" , "Energy Standards for Public Buildings", "Energy Efficiency Resource Standard")
+
+pols2 <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1) %>% 
+  #filter(start_year > 2000) %>% 
+  filter(!(start_year == "NA")) %>% 
+  filter(case_when(state_name == "District of Columbia" ~ start_year > 2009 & start_year < 2013, 
+                   state_name == "South Carolina" ~ start_year > 2005 & start_year < 2011, 
+                   state_name == "Wisconsin" ~ start_year > 2006, 
+                   state_name == "Kentucky" ~ start_year > 2005 & start_year < 2009, 
+                   state_name == "Tennessee" ~ start_year > 1999 & start_year < 2011, 
+                   state_name == "Virginia" ~ start_year > 1996 & start_year < 2014)) %>% 
+  mutate(policy_type = case_when(policy_type %in% Funds_to_renewable_energy  ~ "Funds for Renewable Energy",
+                                 policy_type %in% Tax_incentives   ~ "Tax incentives", 
+                   policy_type %in% Regulatory_policies_for_renewable_energy_diffusion ~ "Regulatory Policies for RE Diffusion",
+                   policy_type %in% Regulatory_policies_renewable_energy_access  ~ "Regulatory Policies for RE Access",
+                   policy_type %in% Consumer_subsidy  ~ "Consumer Subsidy",
+                   policy_type %in% Renewable_energy_and_or_energy_efficiency_standards  ~ "RE and/or Energy Efficiency Standards",
+                   policy_type == "Industry Recruitment/Support"  ~ "Industry Recruitment/Support"))
+
+
+pols2$start_year <- as.numeric(pols2$start_year)
+data_vline <-data.frame(state_name = unique(pols2$state_name),  # Create data for lines
+                         vline = c(2011, 2007, 2008, 2005, 2005, 2014))
+
+p <- pols2 %>% 
+  ggplot(aes(x = start_year, fill = policy_type)) +
+  geom_bar() + 
+  facet_wrap(~state_name) + 
+  theme_cowplot() +
+  scale_fill_manual(values=as.vector(alphabet(26))) +
+  scale_y_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8)) +
+  xlab("") + ylab("") +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(), 
+        plot.background = element_blank(), 
+        legend.background = element_blank(), 
+        strip.background = element_rect(colour = "black", fill = "white"))
+
+policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red")
+
+final_policy_breaks_agg <- policy_breaks + panel_border()
+
+final_policy_breaks_agg
+
+ggsave(".\\policy_breaks_agg.png", plot = final_policy_breaks_agg, device = "png", width = 17, height = 10)
+
+```
+
+
+```{r}
+pols2 %>% pull(policy_type) %>% unique()
+
+```
+# Demand-pull vs tech-push
+
+```{r}
+Funds_to_renewable_energy <- c("Public Benefits Fund", "Grant Program")
+
+Tax_incentives <- c("Property Tax Incentive", "Sales Tax Incentive", "Corporate Tax Credit", "Personal Tax Deduction", "Personal Tax Credit")
+
+Consumer_subsidy <- c("Rebate Program", "Loan Program", "PACE Financing")
+
+Regulatory_policies_for_renewable_energy_diffusion <- c("Building Energy Code", "Green Power Purchasing", "Net Metering", "Interconnection", "Mandatory Utility Green Power Option")
+
+Regulatory_policies_renewable_energy_access <- c("Solar/Wind Access Policy", "Solar/Wind Permitting Standards")
+
+Renewable_energy_and_or_energy_efficiency_standards <- c("Renewables Portfolio Standard" , "Energy Standards for Public Buildings", "Energy Efficiency Resource Standard")
+
+DEMAND_PULL <- c(Tax_incentives, Consumer_subsidy, "Performance-Based Incentive", Regulatory_policies_for_renewable_energy_diffusion)
+
+TECHNOLOGY_PUSH <- c(Funds_to_renewable_energy, "Industry Recruitment/Support")
+
+MIXED <- c(Regulatory_policies_renewable_energy_access, Renewable_energy_and_or_energy_efficiency_standards)
+
+pols2 <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1) %>% 
+  #filter(start_year > 2000) %>% 
+  filter(!(start_year == "NA")) %>% 
+  filter(case_when(state_name == "District of Columbia" ~ start_year > 2009 & start_year < 2013, 
+                   state_name == "South Carolina" ~ start_year > 2005 & start_year < 2011, 
+                   state_name == "Wisconsin" ~ start_year > 2006, 
+                   state_name == "Kentucky" ~ start_year > 2005 & start_year < 2009, 
+                   state_name == "Tennessee" ~ start_year > 1999 & start_year < 2011, 
+                   state_name == "Virginia" ~ start_year > 1996 & start_year < 2014)) %>% 
+  mutate(category = case_when(policy_type %in% DEMAND_PULL  ~ "Demand Pull",
+                              policy_type %in% TECHNOLOGY_PUSH   ~ "Technology Push", 
+                              policy_type %in% MIXED ~ "Mixed"))
+
+
+pols2$start_year <- as.numeric(pols2$start_year)
+data_vline <-data.frame(state_name = unique(pols2$state_name),  # Create data for lines
+                         vline = c(2011, 2007, 2008, 2005, 2005, 2014))
+
+p <- pols2 %>% 
+  ggplot(aes(x = start_year, fill = category)) +
+  geom_bar() + 
+  facet_wrap(~state_name
+             ) + 
+  theme_cowplot() +
+  scale_fill_manual(values=as.vector(alphabet(26))) +
+  xlab("") + ylab("") +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(), 
+        plot.background = element_blank(), 
+        legend.background = element_blank(), 
+        strip.background = element_rect(colour = "black", fill = "white"))
+
+policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red")
+
+final_policy_breaks_demand <- policy_breaks + panel_border()
+
+final_policy_breaks_demand
+
+ggsave(".\\policy_breaks_demand_vstech.png", plot = final_policy_breaks_demand, device = "png", width = 17, height = 10)
+
+
+```
+# Regulatory vs financial 
+```{r}
+pols2 <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1) %>% 
+  #filter(start_year > 2000) %>% 
+  filter(!(start_year == "NA")) %>% 
+  filter(case_when(state_name == "District of Columbia" ~ start_year > 2009 & start_year < 2013, 
+                   state_name == "South Carolina" ~ start_year > 2005 & start_year < 2011, 
+                   state_name == "Wisconsin" ~ start_year > 2006, 
+                   state_name == "Kentucky" ~ start_year > 2005 & start_year < 2009, 
+                   state_name == "Tennessee" ~ start_year > 1999 & start_year < 2011, 
+                   state_name == "Virginia" ~ start_year > 1996 & start_year < 2014))
+
+
+pols2$start_year <- as.numeric(pols2$start_year)
+data_vline <-data.frame(state_name = unique(pols2$state_name),  # Create data for lines
+                         vline = c(2011, 2007, 2008, 2005, 2005, 2014))
+
+p <- pols2 %>% 
+  ggplot(aes(x = start_year, fill = program_category)) +
+  geom_bar() + 
+  facet_wrap(~state_name) + 
+  theme_cowplot() +
+  scale_fill_manual(values=as.vector(alphabet(26))) +
+  xlab("") + ylab("") +
+  theme(legend.position = "bottom", 
+        legend.title = element_blank(), 
+        plot.background = element_blank(), 
+        legend.background = element_blank(), 
+        strip.background = element_rect(colour = "black", fill = "white"))
+
+policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red")
+
+final_policy_breaks_regvsfin <- policy_breaks + panel_border()
+
+final_policy_breaks_regvsfin
+
+ggsave(".\\final_policy_breaks_regvsfin.png", plot = final_policy_breaks_regvsfin, device = "png", width = 17, height = 10)
+
+
+```
+# Inspect n of policies found in break interval vs total n of policies 
+
+```{r}
+tot_n <- as.data.frame(nonfilt_tab)
+
+found_n <- as.data.frame(filt_tab)
+
+vs <- left_join(tot_n, found_n, by = "Var1") %>% rename("Total policies per state in DSIRE" = "Freq.x", "Policies within break CI" = "Freq.y")
+
+#### DA FINIRE
 ```
 
 

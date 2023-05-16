@@ -465,13 +465,14 @@ p_c <- left_join(counts, pol, by = c("state_name"))
 
 breaks <- c("Wisconsin", "South Carolina", "District of Columbia","Kentucky", "Tennessee", "Virginia")
 
-p_c %>% 
+scat <- p_c %>% 
   ggplot(aes(x = tot_count_per_state, y = n, color = state_name))+
   geom_point(size=2, color = "coral2") +
   theme_bw()+
-  ylab("number of policies") + xlab("patent counts") +
+  ylab("Number of policies") + xlab("Patent counts") +
   theme(legend.position = "none")
-#ggsave("Scatt.png", plot = scat, device = "png", width = 10, height = 10)
+
+ggsave("Scatt.png", plot = scat, device = "png", width = 6, height = 6)
 
 cor(p_c$tot_count_per_state, p_c$n)
 

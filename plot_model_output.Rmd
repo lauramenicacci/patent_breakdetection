@@ -1,10 +1,10 @@
 ---
-title: "updated_package_check"
+title: "plot_model_output"
 author: "Laura Menicacci"
 date: "2023-05-07"
 output: html_document
 ---
-
+# Load libraries
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
@@ -22,13 +22,10 @@ mod <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage.RDS")
 mod_noIIS <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage_noIIS.RDS")
 ```
 
-
+# Plot total output with counterfactuals
 ```{r, fig.height=7, fig.width=7}
 
-
-#mod_noIIS$is[[1]]
-
-mod$is[[3]]
+#mod$is[[3]]
 
 p_iis <- plot_counterfactual(mod$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), 
                                                          legend.background = element_blank(), 
@@ -48,20 +45,13 @@ ggsave(".\\figures\\main_counterfactuals.png", plot = main_counterfactuals, devi
 
 ```
 
-
+# Compute 99% CI
 ```{r}
-plot_counterfactual(mod$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), 
-                                                         legend.background = element_blank(), 
-                                                         text=element_text(size=10,  family="serif"))
+break_uncertainty(mod_noIIS$is[[3]]) # this function from getspanel computes the 99% confidence interval around the break
 ```
 
-```{r}
-break_uncertainty(mod_noIIS$is[[3]])
-```
-```{r}
-mod_noIIS$is[[1]]
+# Source (modified) code for getspanel functions
 
-```
 ```{r}
 identify_indicator_timings <- function(object){
 
@@ -279,6 +269,17 @@ plot_isatpanel_laura <- function(x, max.id.facet = 16, facet.scales = "free", ti
 }
 ```
 
+# Plot fit and y
+Here I edited the function plot_isatpanel to only show model fit and y.
+```{r}
+ts_fit_mod <- plot_isatpanel_laura(mod$is[[1]]) # removed fesis and iis just to show y and fitted
+
+ggsave(".\\figures\\ts_fit_main_mod.png", plot = ts_fit_mod, device = "png", width = 12, height = 12)
+
+plot_isatpanel_laura(mod_noIIS$is[[1]])
+```
+
+# Source code to plot counterfactuals from getspanel package
 
 ```{r}
 plot_counterfactual <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
@@ -390,7 +391,9 @@ plot_counterfactual <- function(x, plus_t = 5, facet.scales = "free", title = NU
 }
 ```
 
-# Modify function from getspanel to plot only countries with breaks & only countries with positive breaks
+# Modify function from getspanel to plot only states with breaks & only states with positive breaks
+
+This function takes all the results from the original model output and puts them into a dataframe, so to easily filter for positive break. 
 ```{r}
 identify_effects <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
 
@@ -451,83 +454,43 @@ identify_effects <- function(x, plus_t = 5, facet.scales = "free", title = NULL,
 
   return(effects)
 }
+
+#another_function <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
+# df <- x$estimateddata
+#  indicators <- x$isatpanel.result$aux$mX
+#  indicators <- indicators[,!colnames(indicators) %in% names(df)]
+#  df <- cbind(df,indicators)
+#
+#  df_ident_fesis <- identify_indicator_timings(df)$fesis
+#  
+#  return(df_ident_fesis)
+#  
+#}
+#
+#another_function(mod$is[[1]])
+
+plot_counterfactual_positive <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
+
+  id <- c("DistrictofColumbia", "Kentucky", "SouthCarolina", "Tennessee", "Virginia", "Wisconsin")
+  time <- c(2011, 2007, 2008, 2005, 2005, 2014)
+
+  my_ident_fesis <- data.frame(id, time)
   
-plot_counterfactual_laura_noiis <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
-
-  df <- x$estimateddata
-  indicators <- x$isatpanel.result$aux$mX
-  indicators <- indicators[,!colnames(indicators) %in% names(df)]
-  df <- cbind(df,indicators)
-
-  df_ident_fesis <- identify_indicator_timings(df)$fesis
-
-  if(is.null(x$isatpanel.result$fit)){
-    fitted <- as.numeric(x$isatpanel.result$mean.fit)
-  } else {
-    fitted <- as.numeric(x$isatpanel.result$fit)
-  }
-
-  max_times <- aggregate(x$estimateddata$time,by = list(x$estimateddata$id),FUN = function(x){max(x, na.rm = TRUE)})
-  names(max_times) <- c("id","maxtime")
-
-  df_ident <- break_uncertainty(x)
-  df_ident <- merge(df_ident, max_times, by = "id")
-  df_ident$origtime <- df_ident$time
-
-  # make sure the preceding observation collapses on the last observation
-  df_ident_start <- df_ident
-  df_ident_start$time <- df_ident_start$time - 1
-  df_ident_start$coef <- 0
-  df_ident_start$sd <- 0
-  df_ident_start$tci <- NA
-
-  df_ident_overall <- rbind(df_ident_start, df_ident)
-  for(i in 1:plus_t){
-    intermed <- df_ident
-    intermed$time <- intermed$time + i
-    intermed$time <- ifelse(intermed$time > intermed$maxtime, intermed$maxtime, intermed$time)
-    df_ident_overall <- rbind(df_ident_overall, intermed)
-  }
-  df_ident_overall <- df_ident_overall[order(df_ident_overall$name, df_ident_overall$time),]
-  df_ident_overall <- df_ident_overall[!duplicated(df_ident_overall),]
-
-
-  effects <- merge(x$estimateddata, df_ident_overall, by = c("id","time"), all.x = TRUE)
-  # time-id pairs can also be duplicated if there are multiple rows at a time
-  # this is why effects can have more rows than the original data (and we need to use merge in the row below)
-  effects <- merge(effects,data.frame(x$estimateddata[,c("id","time")], fitted), by = c("id","time"))
-
-  effects$cf <-  (effects$coef * (-1)) +  effects$fitted
-  effects$cf_upr <- ((effects$coef + (1.96 * effects$sd)) * (-1)) +  effects$fitted
-  effects$cf_lwr <- ((effects$coef - (1.96 * effects$sd)) * (-1)) +  effects$fitted
-  effects$cf_upr99 <- ((effects$coef + (2.57 * effects$sd)) * (-1)) +  effects$fitted
-  effects$cf_lwr99 <- ((effects$coef - (2.57 * effects$sd)) * (-1)) +  effects$fitted
-
-  effects$start_rect <- effects$origtime - effects$tci
-  effects$end_rect <- effects$origtime + effects$tci
-
-  effects$cf_upr[is.na(effects$cf_upr)] <- effects$fitted[is.na(effects$cf_upr)]
-  effects$cf_lwr[is.na(effects$cf_lwr)] <- effects$fitted[is.na(effects$cf_lwr)]
+  res <- identify_effects(x)
+  res$coef <- ifelse(res$coef<0, NA, res$coef)
+  res$cf_upr <- ifelse(res$coef<0, NA, res$cf_upr)
+  res$cf_lwr <- ifelse(res$coef<0, NA, res$cf_lwr)
+  res$cf <- ifelse(res$coef<0, NA, res$cf)
   
-  effects_filt <- effects %>% filter(id %in% c("Wisconsin", "SouthCarolina", "Kentucky", "DistrictofColumbia", "Tennessee", "Virginia")) %>% mutate(coef = case_when(coef < 0 ~ coef == NA),
-         start_rect = case_when(coef < 0 ~ start_rect == NA), 
-         end_rect = case_when(coef < 0 ~ end_rect == NA), 
-         cf_lwr = case_when(coef < 0 ~ cf_lwr == NA),
-         cf_upr = case_when(coef < 0 ~ cf_upr == NA),
-         cf = case_when(coef < 0 ~ cf == NA))
+  res1 <- res %>% filter(id %in% c("DistrictofColumbia", "Kentucky", "SouthCarolina", "Tennessee", "Virginia", "Wisconsin"))
   
-  #effects_vline <- effects_filt %>% filter(coef == 0.0000000)
-
   sub_title <- NULL
-  
-  #df <- df %>% filter(id %in% c("Wisconsin", "South Carolina"))
 
-  ggplot(effects_filt, aes_(
+  ggplot(res1, aes_(
     x = ~time,
     y = ~fitted,
     group = ~id
   )) -> g
-
 
 
   if(zero_line){g = g + geom_hline(aes(yintercept = 0))}
@@ -535,16 +498,16 @@ plot_counterfactual_laura_noiis <- function(x, plus_t = 5, facet.scales = "free"
   g +
     geom_line(aes_(y = ~y, color = "black"), size = 0.7) +
 
-    geom_rect(data = effects_filt, aes_(xmin = ~start_rect, xmax = ~end_rect, ymin = -Inf, ymax = Inf, group = ~name),fill = "grey",alpha = 0.1, na.rm = TRUE) +
+    geom_rect(data = res1, aes_(xmin = ~start_rect, xmax = ~end_rect, ymin = -Inf, ymax = Inf, group = ~name),fill = "grey",alpha = 0.1, na.rm = TRUE) +
 
     geom_line(aes(color = "blue"),linetype = 1, size = 0.5) +
 
     # fesis
-    geom_vline(data = df_ident_fesis, aes_(xintercept = ~time,color="red")) +
+    geom_vline(data = my_ident_fesis, aes_(xintercept = ~time,color="red")) +
 
-    geom_ribbon(data = effects_filt, aes_(ymin = ~cf_lwr, ymax = ~cf_upr, fill = "red", group = ~name), alpha = 0.5, na.rm = FALSE) +
+    geom_ribbon(data = res1, aes_(ymin = ~cf_lwr, ymax = ~cf_upr, fill = "red", group = ~name), alpha = 0.5, na.rm = FALSE) +
 
-    geom_line(data = effects_filt, aes_(y = ~cf, color = "red", group = ~name), na.rm = TRUE) +
+    geom_line(data = res1, aes_(y = ~cf, color = "red", group = ~name), na.rm = TRUE) +
 
     # Faceting
     facet_wrap("id", scales = facet.scales) +
@@ -561,7 +524,7 @@ plot_counterfactual_laura_noiis <- function(x, plus_t = 5, facet.scales = "free"
       strip.background = element_blank(),
       legend.key = element_rect(fill = NA),
       panel.border = element_rect(colour = "grey",fill = NA),
-      panel.background = element_blank()#,
+      panel.background = element_blank(),
     ) +
 
     labs(title = title, subtitle = sub_title, y = NULL, x = NULL) -> plotoutput
@@ -570,46 +533,24 @@ plot_counterfactual_laura_noiis <- function(x, plus_t = 5, facet.scales = "free"
 
 }
 
-#another_function <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
-# df <- x$estimateddata
-#  indicators <- x$isatpanel.result$aux$mX
-#  indicators <- indicators[,!colnames(indicators) %in% names(df)]
-#  df <- cbind(df,indicators)
-#
-#  df_ident_fesis <- identify_indicator_timings(df)$fesis
-#  
-#  return(df_ident_fesis)
-#  
-#}
-#
-#another_function(mod$is[[1]])
-
 ```
 
+# Use new function, plot and save 
 
 ```{r, fig.height=3, fig.width=7}
-#ts_fit_mod <- plot_isatpanel_laura(mod$is[[1]]) # removed fesis and iis just to show y and fitted
 
-#ggsave(".\\figures\\ts_fit_main_mod.png", plot = ts_fit_mod, device = "png", width = 12, height = 12)
-#plot_isatpanel_laura(mod_noIIS$is[[1]])
+res <- identify_effects(mod_noIIS$is[[1]]) # take output of model without IIS and transform into dataframe
 
-res <- identify_effects(mod$is[[1]])
+breaks_pos <- plot_counterfactual_positive(mod_noIIS$is[[1]])
 
-iis_res <- plot_counterfactual_laura(mod$is[[1]])
+breaks_pos
 
-noiis <- plot_counterfactual_laura_noiis(mod_noIIS$is[[1]])
-
-noiis
-
-ggsave(".\\figures\\breaks_temporary.png", plot = noiis, device = "png", width = 7, height = 3)
+#ggsave(".\\figures\\breaks_positive_1.png", plot = breaks_pos, device = "png", width = 7, height = 3)
 
 ```
 
-```{r, fig.height=3, fig.width=7}
-iis_res
-```
 
-# 
+# Calculate absolute and relative changes over time
 ```{r}
 changes <- df2 %>% 
   select(state_name, prio_year, patent_count, log_patent_count) %>% 
@@ -625,22 +566,3 @@ changes %>%
   mutate(change_rel=change_rel*100) %>% ## % values for the relative change
   mutate(change_avg_annual=change_avg_annual*100) ## and % for the average annual change
 ```
-# plot grid
-```{r}
-getspanel::plot_grid(mod_noIIS$is[[1]])
-```
-# 
-```{r}
-
-res %>% 
-  mutate(coef = case_when(coef < 0 ~ coef == NA),
-         start_rect = case_when(coef < 0 ~ start_rect == NA), 
-         end_rect = case_when(coef < 0 ~ end_rect == NA), 
-         cf_lwr = case_when(coef < 0 ~ cf_lwr == NA),
-         cf_upr = case_when(coef < 0 ~ cf_upr == NA),
-         cf = case_when(coef < 0 ~ cf == NA))
-
-#res
-
-```
-

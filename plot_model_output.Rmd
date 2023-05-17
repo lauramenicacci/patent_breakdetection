@@ -549,6 +549,25 @@ breaks_pos
 
 ```
 
+# Table of results 
+
+```{r}
+
+rob <- readRDS(here("model_spec/results/models_w_fuel.RDS"))
+
+other_results <- readRDS(here("model_spec/results/models_2019.RDS"))
+
+
+ihs_fuel_ar0 <- identify_effects(rob$is[[9]]) %>% 
+  filter(id %in% c("DistrictofColumbia", "Kentucky", "SouthCarolina", "Tennessee", "Virginia", "Wisconsin")) %>% 
+  select(id, coef)
+  
+
+#print(xtable(, type = "latex"), file = "robust.tex")
+
+other_results$is[[33]]
+
+```
 
 # Calculate absolute and relative changes over time
 ```{r}

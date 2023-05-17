@@ -197,7 +197,7 @@ cpc_names$CPC_Class <- cpc_names %>% pull(CPC_Class) %>%  gsub("\u00a0", " ", .)
 
 pat_plot <- pat %>%
   filter(prio_year >= 2000 & prio_year <= 2019) %>% 
-  select(appln_id, CPC_Class) %>% 
+  select(appln_id, CPC_Class, prio_year) %>% 
   distinct(.keep_all = TRUE)
 
 pat_plot$CPC_Class <- pat_plot %>%  pull(CPC_Class) %>%   gsub("  ", " ", .)
@@ -458,7 +458,6 @@ pat_plot2 %>%
 ```{r, fig.height=7, fig.width=7}
 counts <- read_csv("C:/Users/laura/OneDrive/Documenti/LAURA/HERTIE 22-23/THESIS/patent_breakdetection/model_spec/df.csv", show_col_types = FALSE) %>% group_by(state_name) %>% summarise(tot_count_per_state = sum(patent_count))
 
-
 pol <- read_csv("C:/Users/laura/OneDrive/Documenti/LAURA/HERTIE 22-23/THESIS/patent_breakdetection/policy_attribution/policy_dataset1.csv", show_col_types = FALSE) %>% select(state_name, policy_name, policy_type) %>% group_by(state_name) %>% count
 
 p_c <- left_join(counts, pol, by = c("state_name"))
@@ -466,13 +465,16 @@ p_c <- left_join(counts, pol, by = c("state_name"))
 breaks <- c("Wisconsin", "South Carolina", "District of Columbia","Kentucky", "Tennessee", "Virginia")
 
 scat <- p_c %>% 
-  ggplot(aes(x = tot_count_per_state, y = n, color = state_name))+
-  geom_point(size=2, color = "coral2") +
+  ggplot(aes(x = tot_count_per_state, y = n))+
+  geom_point(size=2, color = "#280084") +
+  geom_smooth(method = "lm", se = TRUE, colour = "black") +
   theme_bw()+
   ylab("Number of policies") + xlab("Patent counts") +
   theme(legend.position = "none")
 
-ggsave("Scatt.png", plot = scat, device = "png", width = 6, height = 6)
+scat
+
+ggsave("Scatt.png", plot = scat, device = "png", width = 5, height = 5)
 
 cor(p_c$tot_count_per_state, p_c$n)
 

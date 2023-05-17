@@ -240,9 +240,13 @@ pols2$start_year <- as.numeric(pols2$start_year)
 data_vline <-data.frame(state_name = unique(pols2$state_name),  # Create data for lines
                          vline = c(2011, 2007, 2008, 2005, 2005, 2014))
 
+data_rect <- data.frame(state_name = unique(pols2$state_name), # Create data for conf int
+                        rect_min = c(2010, 2006, 2006, 2000, 1997, 2007), 
+                        rect_max = c(2012, 2008, 2010, 2010, 2013, 2021))
+
 p <- pols2 %>% 
   ggplot(aes(x = start_year, fill = policy_type)) +
-  geom_bar() + 
+  geom_bar(colour = "black") + 
   facet_wrap(~state_name) + 
   theme_cowplot() +
   scale_fill_manual(values=as.vector(alphabet(26))) +
@@ -254,13 +258,11 @@ p <- pols2 %>%
         legend.background = element_blank(), 
         strip.background = element_rect(colour = "black", fill = "white"))
 
-policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red")
+policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red") 
 
-final_policy_breaks <- policy_breaks + panel_border()
+final_policy_breaks <- policy_breaks + panel_border() + geom_rect(data = data_rect, aes(xmin = rect_min, xmax = rect_max, ymin = -Inf, ymax = Inf, group = state_name), fill = "grey", alpha = 0.2, inherit.aes = FALSE)
 
 final_policy_breaks
-
-#TO ADD: geom_rect(data = effects, aes_(xmin = ~start_rect, xmax = ~end_rect, ymin = -Inf, ymax = Inf, group = ~name),fill = "grey",alpha = 0.1, na.rm = TRUE)
 
 ggsave(".\\policy_breaks.png", plot = final_policy_breaks, device = "png", width = 17, height = 10)
 
@@ -305,7 +307,7 @@ data_vline <-data.frame(state_name = unique(pols2$state_name),  # Create data fo
 
 p <- pols2 %>% 
   ggplot(aes(x = start_year, fill = policy_type)) +
-  geom_bar() + 
+  geom_bar(colour = "black") + 
   facet_wrap(~state_name) + 
   theme_cowplot() +
   scale_fill_manual(values=as.vector(alphabet(26))) +
@@ -319,7 +321,7 @@ p <- pols2 %>%
 
 policy_breaks <- p + geom_vline(data = data_vline, aes(xintercept = vline), color = "red")
 
-final_policy_breaks_agg <- policy_breaks + panel_border()
+final_policy_breaks_agg <- policy_breaks + panel_border() + geom_rect(data = data_rect, aes(xmin = rect_min, xmax = rect_max, ymin = -Inf, ymax = Inf, group = state_name), fill = "grey", alpha = 0.2, inherit.aes = FALSE)
 
 final_policy_breaks_agg
 

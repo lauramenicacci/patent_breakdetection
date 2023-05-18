@@ -21,20 +21,20 @@ library(cowplot)
 
 # Merge csvs together to create policy dataset with relevant information
 ```{r setup, include=FALSE}
-policy <- read_csv("D:\\policy_database\\program_new.csv") %>% 
+policy <- read_csv("D:\\policy_database\\program_new.csv") %>% # original policy data
   select(!c(administrator, fromSir, additional_technologies))
 
-state_info <- read_csv("D:\\policy_database\\state.csv")  %>% 
+state_info <- read_csv("D:\\policy_database\\state.csv")  %>% # remove useless vars
   select(!c(is_territory))
 
-authority <- read_csv("D:\\policy_database\\authority.csv") %>% 
+authority <- read_csv("D:\\policy_database\\authority.csv") %>%  # add legislative information
   select(!c(order,code, file_key, file_name, id, website, expired, expiredtext)) %>% 
   filter(if_any(c(effective, effectivetext), complete.cases)) %>% 
   distinct()
 
 type <- read_csv("D:\\policy_database\\program_type.csv")
 
-policy1 <- left_join(policy, type, by = c("program_type_id" = "id")) %>% 
+policy1 <- left_join(policy, type, by = c("program_type_id" = "id")) %>%  # add policy type information
   rename("policy_type" = "name.y", 
          "name" = "name.x") %>% 
   select(!c(program_category_id.y))
@@ -47,14 +47,14 @@ policy2 <- left_join(policy1, state_info, by = c("state_id" = "id")) %>% # join 
          "program_category" = "program_category_id.x") %>% 
   select(policy_id, state_name, state_code, policy_name, summary, policy_type, program_category, published, websiteurl, start_date, start_date_text)
   
-policy2$start_year <- policy2 %>% 
+policy2$start_year <- policy2 %>% # change format with lubridate
   pull(start_date) %>% 
   year()
 
-policy2 <- policy2 %>% 
+policy2 <- policy2 %>%  # remove old variable
   select(!c(start_date))
 
-policy2$program_category <- ifelse(policy2$program_category == 1, "Financial Incentive", "Regulatory Policy")
+policy2$program_category <- ifelse(policy2$program_category == 1, "Financial Incentive", "Regulatory Policy") # rename policy categories
 
 #write_csv(policy2, ".\\policy_dataset1.csv")
 
@@ -85,9 +85,9 @@ filt <- policy2 %>%
 
 table(is.na(filt$start_year)) # check missingness in the dataset: out of 550 policies, 456 have missing value in year  
 
-imputed_dataset <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1)  # out of 550 policies, 350 have missing value in year 
+imputed_dataset <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1)  # out of 550 policies, 350 have missing value in year: recovered around 100 policies
 
-table(imputed_dataset$start_year == "NA")
+#table(imputed_dataset$start_year == "NA")
 ```
 
 # Visualization
@@ -96,10 +96,7 @@ table(imputed_dataset$start_year == "NA")
 policy2 <- read_csv(".\\policy_dataset1.csv", show_col_types = FALSE) %>% 
   filter(!(state_name %in% c("American Samoa", "Federated States of Micronesia", "Marshall Islands", "Palau", "Guam", "N. Mariana Islands", "Virgin Islands", "Puerto Rico")))
 
-#table(policy2$state_name)
-
 npol_state = as.data.frame(table(policy2$state_name)) # n policy per state
-
 
 npol_state <- npol_state %>%
   arrange(Freq) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
@@ -114,14 +111,13 @@ npol_state <- npol_state %>%
 
 ggsave(".\\npol_state.png", plot = npol_state, device = "png", width = 5, height = 5)
 
-
 ```
 
 ## POLICY TYPE
 ```{r}
 df_policy_type = as.data.frame(table(policy2$policy_type))
 
-all_policy_types <- df_policy_type %>%
+all_policy_types <- df_policy_type %>% # barplot showing policy types frequency
   mutate(name = fct_reorder(Var1, Freq)) %>%
   ggplot( aes( x=name,y=Freq)) +
     geom_bar(stat="identity", fill="#00846b",  width=.8, alpha = 0.7) +
@@ -136,8 +132,7 @@ ggsave(".\\all_policy_types.png", plot = all_policy_types, device = "png", width
 
 ## Policy category
 ```{r}
-
-df_policy_cat = as.data.frame(table(policy2$program_category))
+df_policy_cat = as.data.frame(table(policy2$program_category)) # barplot showing policy category frequency
  
 prog_cat <- ggplot(df_policy_cat, aes(x=Var1, y=Freq)) + 
   geom_bar(stat = "identity", color = '#005b84', fill = "#00846b", alpha = 0.7) +
@@ -145,6 +140,7 @@ prog_cat <- ggplot(df_policy_cat, aes(x=Var1, y=Freq)) +
 ```
 
 ## Treemap: Policy type and policy category
+Use treemap visualization to grasp overall frequency of different policy types
 ```{r, fig.height=7, fig.width=7}
 
 financial_df = as.data.frame(table(policy2[policy2$program_category == 'Financial Incentive', ]$policy_type))
@@ -169,7 +165,6 @@ trees <- plot_grid(financial, regulatory, align = 'h', nrow = 2, ncol = 1)
 
 trees
 
-
 all <- plot_grid(trees, prog_cat, align = 'v', nrow = 1, ncol = 2, rel_widths = c(1.5, 1), rel_heights = c(1, 1.5))
 
 all
@@ -183,6 +178,8 @@ ggsave(".\\treemaps.png", plot = trees, device = "png", width = 12, height = 8)
 ```
 
 # Policy attribution - selected policies
+
+Manually selected policies by looking ad dataset - this approach is not shown in main text of thesis, as it is not completely agnostic
 ```{r, fig.height=7, fig.width=17}
 
 pols <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 3) %>% 
@@ -223,7 +220,7 @@ final_policy_breaks_1
 
 ```
 
-# Version with non-selected policies
+# Version with non-selected policies: shown in master thesis
 ```{r, fig.height=7, fig.width=17}
 pols2 <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1) %>% 
   #filter(start_year > 2000) %>% 
@@ -328,13 +325,7 @@ final_policy_breaks_agg
 ggsave(".\\policy_breaks_agg.png", plot = final_policy_breaks_agg, device = "png", width = 17, height = 10)
 
 ```
-
-
-```{r}
-pols2 %>% pull(policy_type) %>% unique()
-
-```
-# Demand-pull vs tech-push
+# Another type of aggregation: demand-pull vs tech-push
 
 ```{r}
 Funds_to_renewable_energy <- c("Public Benefits Fund", "Grant Program")
@@ -440,18 +431,23 @@ ggsave(".\\final_policy_breaks_regvsfin.png", plot = final_policy_breaks_regvsfi
 # Inspect n of policies found in break interval vs total n of policies 
 
 ```{r}
+pols <- read_excel(".\\filtered_policies_by_positive_break.xlsx", sheet = 1)
+
+filt_tab <- table(pols2$state_name)
+
+nonfilt_tab <- table(pols$state_name)
+
 tot_n <- as.data.frame(nonfilt_tab)
 
 found_n <- as.data.frame(filt_tab)
 
 vs <- left_join(tot_n, found_n, by = "Var1") %>% rename("Total policies per state in DSIRE" = "Freq.x", "Policies within break CI" = "Freq.y")
 
-#### DA FINIRE
+vs
 ```
 
-
-
 # Policy attribution by neighboring state
+Manually inspect whether there policies in these states that could have been a potential cause for patenting increases
 ```{r}
 tn_neigh <- c("Missouri", "Arkansas", "Mississippi", "Alabama", "Georgia", "North Carolina", "Virginia", "Kentucky")
 

@@ -1,5 +1,5 @@
 ---
-title: "build modeling specification pipeline"
+title: "Model specification pipeline"
 author: "Laura Menicacci"
 date: "`r Sys.Date()`"
 output: html_document
@@ -9,7 +9,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
 
 library(tidyverse)
 library(gets)
@@ -28,17 +27,16 @@ library(gdata)
 df <- read_csv(".\\df.csv", show_col_types = FALSE)
 
 df2 <- df %>% 
-  mutate(lpop = log(pop),
-         lgdp = log(gdp),
-         lfuel = log(fuel),
-         lgdp_sq = log(gdp)^2,
-         ltemp = log(avg_temp),
+  mutate(lpop = log(pop), # log pop
+         lgdp = log(gdp), # log gdp
+         lfuel = log(fuel), # log fuel price by purchase area 
+         lgdp_sq = log(gdp)^2, # squared gdp
+         ltemp = log(avg_temp), # average temperature
          ihs_patent_count = asinh(patent_count), # inverse hyperbolic sine transformation
          log_patent_count = log(patent_count+1)) %>% # log+1 transformation
   filter(prio_year >= 2000)
 
-# Sanity check
-df2 %>% pull(state_name) %>% unique
+df2 %>% pull(state_name) %>% unique # sanity check
 
 df2 %>% filter(!complete.cases(.))
 
@@ -48,6 +46,7 @@ df2 %>% filter(!complete.cases(.))
 
 # Load samples
 
+Different samples are tried out that remove states according to quantile distributions. q30 is the one chosen: removes states up to 30th quantile of distribution. 
 ```{r}
 us_all <- c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado","Connecticut", "Delaware", "Florida","Georgia","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey", "New York", "New Mexico", "North Carolina", "North Dakota","Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina","South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington","West Virginia","Wisconsin","Wyoming", "District of Columbia", "Hawaii")
 
@@ -63,96 +62,55 @@ samples <- mget(c("us_all", "us_q20", "us_q25", "us_q30"))
 # Functional forms
 
 ```{r}
+controls <- c(" ~ lgdp + lpop + lgdp_sq ") # specify controls to be fed into model 
 
-controls <- c(" ~ lgdp + lpop + lgdp_sq ") 
+dep_var <- c("log_patent_count") # specify dependent var to be fed into model 
 
-dep_var <- c("log_patent_count") # ihs selected as robustness check
-
-base_forms <- paste0(rep(dep_var, each = length(controls)), controls)
+base_forms <- paste0(rep(dep_var, each = length(controls)), controls) # paste together
 
 base_forms
 
 ```
 
-## Analysis
+# Analysis: main model parameters
 
 ```{r}
 
-cl <- makeCluster(6)
-registerDoParallel(cl)
+cl <- makeCluster(6) 
+registerDoParallel(cl) # foreach package function that parallelizes operations to make it faster using %:% 
 
-models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
-  foreach(smpl = c("us_all", "us_q25"), .combine = rbind) %:%
+models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:% # specify functional form 
+  foreach(smpl = c("us_q30"), .combine = rbind) %:% # specify samples
   foreach(a = c(0,1), .combine = rbind) %:%
-  #foreach(b = c(10, 20, 30), .combine = rbind) %:%
   foreach(p.value = c(0.01, 0.05), .combine = rbind, .errorhandling = "remove") %dopar% {
-    dat <- df2 %>% filter(state_name %in% samples[[smpl]])
-      is <- isatpanel(
+    dat <- df2 %>% filter(state_name %in% samples[[smpl]]) %>% filter(prio_year <= 2019) # iterate over samples 
+      is <- isatpanel( # main function
             data = dat,
             formula = as.formula(f),
-            index = c("state_name", "prio_year"),
-            effect = "twoways",
-            iis = TRUE,
-            fesis = TRUE,
-            ar = a,
-            t.pval = p.value,
-            max.block.size = 20
+            index = c("state_name", "prio_year"), # id and time
+            effect = "twoways", # twoway fixed effects chosen as estimator
+            iis = TRUE, # enable impulse indicator saturation
+            fesis = TRUE, # enable fixed effects indicator saturation
+            ar = a, # specify auto-regressive terms
+            t.pval = p.value,  # false positive rate
+            max.block.size = 20 # size for block search 
             )
-          models = tibble(source = f, 
-                          state_sample = smpl,      
-                          year_range = paste0(min(df2$prio_year),":",max(df2$prio_year)),
-                          p_val = p.value, 
-                          is = list(is),
-                          iis = TRUE,
+          models = tibble(source = f,  # results are gathered into a dataframe with the following information:
+                          state_sample = smpl,    # which sample 
+                          year_range = paste0(min(dat$prio_year),":",max(dat$prio_year)), # time series
+                          p_val = p.value, # false positive rates 
+                          is = list(is), # here there's the whole model output with results of interest
+                          iis = TRUE, # whether IIS was enabled or not
                           b_size = 20,
                           ar = a)
   }
 
-stopCluster(cl)
+stopCluster(cl) # stop parallelizing 
 
-saveRDS(models, ".\\results\\models_nonpat_q25.RDS")
+saveRDS(models, ".\\results\\mods_main_updatedpackage.RDS")  # save model output 
 ```
 
-## Analysis: exclude 2020
-
-```{r}
-cl <- makeCluster(6)
-registerDoParallel(cl)
-
-models <- foreach(f = base_forms, .combine = rbind, .packages = c('tidyverse', 'getspanel')) %:%
-  foreach(smpl = c("us_q30"), .combine = rbind) %:%
-  foreach(a = c(0,1), .combine = rbind) %:%
-  #foreach(b = c(10, 20, 30), .combine = rbind) %:%
-  foreach(p.value = c(0.01, 0.05), .combine = rbind, .errorhandling = "remove") %dopar% {
-    dat <- df2 %>% filter(state_name %in% samples[[smpl]]) %>% filter(prio_year <= 2019)
-      is <- isatpanel(
-            data = dat,
-            formula = as.formula(f),
-            index = c("state_name", "prio_year"),
-            effect = "twoways",
-            iis = TRUE,
-            fesis = TRUE,
-            ar = a,
-            t.pval = p.value,
-            max.block.size = 20
-            )
-          models = tibble(source = f, 
-                          state_sample = smpl,      
-                          year_range = paste0(min(dat$prio_year),":",max(dat$prio_year)),
-                          p_val = p.value, 
-                          is = list(is),
-                          iis = TRUE,
-                          b_size = 20,
-                          ar = a)
-  }
-
-stopCluster(cl)
-
-saveRDS(models, ".\\results\\mods_main_updatedpackage.RDS")
-```
-
-
-## Analysis: silence IIS 
+## Analysis: silenced IIS 
 
 ```{r}
 cl <- makeCluster(6)
@@ -191,9 +149,9 @@ saveRDS(models, ".\\results\\mods_main_updatedpackage_noIIS.RDS")
 ```
 
 
-## Analysis: robustness  check
+## Analysis: try out different robustness checks
 
-Selected model specifications + includes all controls: fuel
+Selected model specifications + includes robustness checks controls: fuel
 
 ```{r}
 

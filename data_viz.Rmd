@@ -13,8 +13,6 @@ library(ggthemes)
 library(gridExtra)
 library(packHV)
 
-# load patent data 
-
 # complete dataset
 df <- read_csv(".\\model_spec\\df.csv", show_col_types = FALSE)  # patent counts
 
@@ -24,11 +22,10 @@ df <- read_csv(".\\model_spec\\df.csv", show_col_types = FALSE)  # patent counts
 
 ## Boxplot - by year
 ```{r, echo=FALSE,fig.height=8,fig.width=8}
-# Basic box plot
 
 df$prio_year.factor <- factor(df$prio_year)
 
-box_plot_by_year <- ggplot(df) + 
+box_plot_by_year <- ggplot(df) + # Basic box plot by year
   geom_boxplot(mapping = aes(x = prio_year.factor,
                              y = patent_count), 
                outlier.colour="red",
@@ -137,7 +134,6 @@ ggsave(".\\figures\\box_hist_means.png", plot = box_hist_dist, device = "png", w
 ## Histogram - entire distribution
 ```{r}
 
-
 y_dist
 
 #ggsave(".\\fig_new\\y_distribution.png", plot = y_dist, device = "png", width = 8, height = 8)
@@ -227,6 +223,8 @@ for (i in 1:nrow(stats_pat)){
 
 ```
 
+
+# Show change in distribution when removing non-patenting states
 ```{r}
 
 dist1 <- stats_pat %>% 
@@ -239,17 +237,6 @@ dist1 <- stats_pat %>%
         axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank()) 
-
-#stats_pat %>% 
-#  filter(!state_name %in% nonpat_q20) %>% 
-#  ggplot(aes(x = mean)) + 
-#  geom_boxplot()
-#
-#stats_pat %>% 
-#  filter(!state_name %in% nonpat_q25) %>% 
-#  ggplot(aes(x = mean)) + 
-#  geom_boxplot()
-
 dist2 <- stats_pat %>% 
   filter(!state_name %in% nonpat_q30) %>% 
   ggplot(aes(x = mean)) + 

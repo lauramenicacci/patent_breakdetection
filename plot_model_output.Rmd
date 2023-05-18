@@ -17,31 +17,29 @@ library(readxl)
 library(gdata)
 library(cowplot)
 
-mod <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage.RDS")
+mod <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage.RDS") # load main model output
 
-mod_noIIS <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage_noIIS.RDS")
+mod_noIIS <- readRDS(".\\model_spec\\results\\mods_main_updatedpackage_noIIS.RDS") # load main model output w/o 
 ```
 
 # Plot total output with counterfactuals
 ```{r, fig.height=7, fig.width=7}
 
-#mod$is[[3]]
-
-p_iis <- plot_counterfactual(mod$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), 
+p_iis <- plot_counterfactual(mod$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), # plot counterfactuals
                                                          legend.background = element_blank(), 
                                                          text=element_text(size=10,  family="serif"))
 
-p_noiis <- plot_counterfactual(mod_noIIS$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), 
+p_noiis <- plot_counterfactual(mod_noIIS$is[[1]]) + theme_clean() + theme(plot.background = element_blank(), # plot counterfactuals
                                                          legend.background = element_blank(), 
                                                          text=element_text(size=10,  family="serif"))
 
-main_counterfactuals <- plot_grid(p_iis, p_noiis, ncol = 1, labels = c("A. Main specification with IIS", "B. Main specification without IIS"), label_fontfamily = "serif", label_fontface = "plain", scale = 0.9)
+main_counterfactuals <- plot_grid(p_iis, p_noiis, ncol = 1, labels = c("A. Main specification with IIS", "B. Main specification without IIS"), label_fontfamily = "serif", label_fontface = "plain", scale = 0.9) # put both models in a grid 
 
 #plots <- align_plots(p3, p1, align = 'v', axis = 'l')
 
 main_counterfactuals
 
-ggsave(".\\figures\\main_counterfactuals.png", plot = main_counterfactuals, device = "png", width = 10, height = 16)
+#ggsave(".\\figures\\main_counterfactuals.png", plot = main_counterfactuals, device = "png", width = 10, height = 16)
 
 ```
 
@@ -53,7 +51,7 @@ break_uncertainty(mod_noIIS$is[[3]]) # this function from getspanel computes the
 # Source (modified) code for getspanel functions
 
 ```{r}
-identify_indicator_timings <- function(object){
+identify_indicator_timings <- function(object){ # this function takes the output of the model with all the dummies and returns the years, the country when the step or impulse was identified
 
   varying_vars <- names(object)[!names(object)%in% c("id","time","y","fitted")]
 
@@ -178,10 +176,11 @@ identify_indicator_timings <- function(object){
 
 }
 
+# this function plots the y, the fitted values and a vertical red line for the fesis, a vertical grey line for the iis 
+
 plot_isatpanel_laura <- function(x, max.id.facet = 16, facet.scales = "free", title = NULL, zero_line = FALSE, ...){
 
   #interactive = TRUE, currently not implemented. Roxygen: Logical (TRUE or FALSE). Default is TRUE. When True, plot will be passed to plotly using ggplotly.
-
 
   df <- x$estimateddata
   indicators <- x$isatpanel.result$aux$mX
@@ -274,7 +273,7 @@ Here I edited the function plot_isatpanel to only show model fit and y.
 ```{r}
 ts_fit_mod <- plot_isatpanel_laura(mod$is[[1]]) # removed fesis and iis just to show y and fitted
 
-ggsave(".\\figures\\ts_fit_main_mod.png", plot = ts_fit_mod, device = "png", width = 12, height = 12)
+#ggsave(".\\figures\\ts_fit_main_mod.png", plot = ts_fit_mod, device = "png", width = 12, height = 12)
 
 plot_isatpanel_laura(mod_noIIS$is[[1]])
 ```
@@ -282,7 +281,7 @@ plot_isatpanel_laura(mod_noIIS$is[[1]])
 # Source code to plot counterfactuals from getspanel package
 
 ```{r}
-plot_counterfactual <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
+plot_counterfactual <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){ # this function adds the counterfactual using the confidence interval data given by the break uncertainty function 
 
   df <- x$estimateddata
   indicators <- x$isatpanel.result$aux$mX
@@ -300,7 +299,7 @@ plot_counterfactual <- function(x, plus_t = 5, facet.scales = "free", title = NU
   max_times <- aggregate(x$estimateddata$time,by = list(x$estimateddata$id),FUN = function(x){max(x, na.rm = TRUE)})
   names(max_times) <- c("id","maxtime")
 
-  df_ident <- break_uncertainty(x)
+  df_ident <- break_uncertainty(x) # this function identifies the 99% confidence interval around the break
   df_ident <- merge(df_ident, max_times, by = "id")
   df_ident$origtime <- df_ident$time
 
@@ -469,6 +468,8 @@ identify_effects <- function(x, plus_t = 5, facet.scales = "free", title = NULL,
 #
 #another_function(mod$is[[1]])
 
+# this function filters for the states where positive break is identified and only plots counterfactual when break is positive
+
 plot_counterfactual_positive <- function(x, plus_t = 5, facet.scales = "free", title = NULL, zero_line = FALSE){
 
   id <- c("DistrictofColumbia", "Kentucky", "SouthCarolina", "Tennessee", "Virginia", "Wisconsin")
@@ -549,25 +550,6 @@ breaks_pos
 
 ```
 
-# Table of results 
-
-```{r}
-
-rob <- readRDS(here("model_spec/results/models_w_fuel.RDS"))
-
-other_results <- readRDS(here("model_spec/results/models_2019.RDS"))
-
-
-ihs_fuel_ar0 <- identify_effects(rob$is[[9]]) %>% 
-  filter(id %in% c("DistrictofColumbia", "Kentucky", "SouthCarolina", "Tennessee", "Virginia", "Wisconsin")) %>% 
-  select(id, coef)
-  
-
-#print(xtable(, type = "latex"), file = "robust.tex")
-
-other_results$is[[33]]
-
-```
 
 # Calculate absolute and relative changes over time
 ```{r}
